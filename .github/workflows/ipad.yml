@@ -1,0 +1,85 @@
+# ShippoTV pour iPad : fabrication automatique sur un Mac de GitHub.
+# Produit : ShippoTV-iPad.ipa (à installer avec AltStore) + captures d'écran du simulateur.
+name: Appli iPad
+on:
+  push:
+    branches: [main]
+    paths: ["ios/**", "web/**", "tv/engine/**", "outils/build_ios.py", ".github/workflows/ipad.yml", "version.txt"]
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: ipad
+  cancel-in-progress: true
+jobs:
+  ipad:
+    runs-on: macos-15
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+      - name: Versions
+        run: xcodebuild -version && python3 --version && pod --version
+      - name: Outils
+        run: brew install xcodegen
+      - name: Interface web embarquée
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          TMDB_KEY: ${{ secrets.TMDB_KEY }}
+        run: python3 outils/build_ios.py
+      - name: Projet Xcode
+        working-directory: ios
+        run: |
+          sed -i '' "s/MARKETING_VERSION: \".*\"/MARKETING_VERSION: \"$(cat ../version.txt)\"/; s/CURRENT_PROJECT_VERSION: \".*\"/CURRENT_PROJECT_VERSION: \"${GITHUB_RUN_NUMBER}\"/" project.yml
+          xcodegen generate
+          pod install
+      - name: Fabrication pour iPad (ipa)
+        working-directory: ios
+        run: |
+          set -o pipefail
+          xcodebuild -workspace ShippoTV.xcworkspace -scheme ShippoTV -configuration Release -sdk iphoneos \
+            -destination 'generic/platform=iOS' -derivedDataPath build/dev \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build 2>&1 | tee build-dev.log | grep -E "error:|warning: .*Swift|BUILD (SUCCEEDED|FAILED)" || true
+          test -d build/dev/Build/Products/Release-iphoneos/ShippoTV.app
+          rm -rf Payload && mkdir Payload
+          cp -R build/dev/Build/Products/Release-iphoneos/ShippoTV.app Payload/
+          zip -qry ShippoTV-iPad.ipa Payload
+          ls -la ShippoTV-iPad.ipa
+      - name: Journal de fabrication
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: journal-fabrication
+          path: ios/build-*.log
+      - name: Fichier pour AltStore
+        uses: actions/upload-artifact@v4
+        with:
+          name: ShippoTV-iPad
+          path: ios/ShippoTV-iPad.ipa
+      - name: Publication (téléchargement direct depuis l'iPad)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ipad-beta
+          name: ShippoTV iPad (bêta)
+          prerelease: true
+          files: ios/ShippoTV-iPad.ipa
+          body: |
+            Version iPad de ShippoTV, fabriquée automatiquement (version ${{ github.run_number }}).
+            À installer avec AltStore : voir GUIDE_IPAD.txt.
+      - name: Fabrication pour le simulateur
+        continue-on-error: true
+        working-directory: ios
+        run: |
+          set -o pipefail
+          xcodebuild -workspace ShippoTV.xcworkspace -scheme ShippoTV -configuration Debug -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' -derivedDataPath build/sim \
+            CODE_SIGNING_ALLOWED=NO build 2>&1 | tee build-sim.log | grep -E "error:|BUILD (SUCCEEDED|FAILED)" || true
+      - name: Captures d'écran
+        continue-on-error: true
+        run: python3 ios/ci/screens.py
+      - name: Envoi des captures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: captures
+          path: ios/ci/out/

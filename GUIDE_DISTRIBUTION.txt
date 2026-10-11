@@ -1,0 +1,136 @@
+SHIPPOTV — INSTALLER, PARTAGER AVEC VOS AMIS, METTRE À JOUR
+============================================================
+
+Ce guide se fait une seule fois (30 minutes environ). Ensuite, publier une
+nouvelle version prend deux double-clics, et tous les PC où ShippoTV est
+installé la proposent tout seuls.
+
+
+A. FABRIQUER L'INSTALLATEUR
+---------------------------
+1. Installez Python 3.12 64 bits : https://www.python.org/downloads/
+   (cochez « Add python.exe to PATH »).
+2. Double-cliquez sur « creer_exe.bat ».
+   Il installe ce qu'il faut, compile ShippoTV, ajoute le moteur VLC et
+   fabrique l'installateur avec Inno Setup (installé tout seul si besoin).
+3. Résultat : Output\ShippoTV-Setup-5.1.0.exe
+   Double-cliquez dessus : ShippoTV s'installe comme un vrai programme
+   (menu Démarrer, icône sur le bureau, désinstallation depuis Windows).
+   Pas besoin d'être administrateur.
+
+Votre clé TMDB est intégrée automatiquement : creer_exe.bat la lit dans les
+réglages de ShippoTV sur ce PC. Rien à recopier. (Si la fabrication affiche
+« Clé TMDB intégrée : NON », lancez une fois ShippoTV, renseignez la clé
+dans Réglages > Contenus, puis relancez creer_exe.bat.)
+Vos amis n'ont donc rien à saisir pour les jaquettes ; ils peuvent quand même
+mettre leur propre clé dans Réglages s'ils le souhaitent.
+
+
+B. ACTIVER LA SYNCHRONISATION ENTRE APPAREILS (gratuit, une fois)
+-----------------------------------------------------------------
+La synchronisation passe par un petit serveur Supabase (gratuit) que vous
+créez vous-même. Tout y est chiffré sur le PC avant l'envoi : le serveur ne
+voit ni les titres, ni les profils, ni le fournisseur IPTV. Vos amis
+peuvent utiliser le même serveur : chaque groupe d'appareils est
+indépendant et illisible pour les autres.
+
+1. Créez un compte sur https://supabase.com puis « New project »
+   (nom : shippotv, région : Europe, mot de passe au choix).
+2. Dans le projet : menu « SQL Editor » > « New query ».
+   Ouvrez le fichier outils\supabase.sql avec le Bloc-notes, copiez tout,
+   collez-le, puis cliquez sur « Run ». (« Success. No rows returned » = OK.)
+3. Menu « Project Settings » > « API » (ou « Data API » / « API Keys ») :
+   - copiez « Project URL »  (https://xxxx.supabase.co)
+   - copiez la clé publique « anon public » ou « publishable »
+     (jamais la clé « service_role » / « secret »).
+4. Collez-les dans distribution.json :
+     "supabase_url": "https://xxxx.supabase.co",
+     "supabase_key": "la clé publique",
+5. Relancez creer_exe.bat.
+
+Utilisation : Réglages > Synchronisation entre appareils.
+- Sur le premier PC : « Créer un groupe ».
+- Pour ajouter un appareil : « Associer un appareil » affiche un code à
+  6 caractères (valable 10 minutes, utilisable une fois). Sur l'autre PC :
+  « J'ai un code ».
+- Sont synchronisés : profils, Ma liste, reprises de lecture, épisodes vus,
+  historique, alertes « Me prévenir », rappels TV, corrections de jaquettes.
+  Les identifiants Xtream et les téléchargements restent sur chaque PC.
+- « Changer la clé » : à faire si un appareil est perdu ou donné ; il faut
+  ensuite réassocier vos appareils.
+
+Bon à savoir : un projet Supabase gratuit est mis en pause après une
+semaine sans aucune activité. S'il l'est, ShippoTV affiche « Serveur de
+synchronisation injoignable » : rouvrez le projet sur supabase.com et
+cliquez sur « Restore ». Rien n'est perdu.
+
+
+C. ACTIVER LES MISES À JOUR AUTOMATIQUES (gratuit, une fois)
+------------------------------------------------------------
+Les mises à jour sont publiées sur GitHub ; chaque ShippoTV installé vérifie
+toutes les 6 heures s'il y a une nouvelle version et propose « Installer »
+(téléchargement, installation silencieuse et redémarrage automatiques).
+
+1. Créez un compte sur https://github.com
+2. « New repository » : nom « cineflux », visibilité « Public »
+   (obligatoire pour que les applis puissent lire les versions sans mot de
+   passe). Le dépôt peut rester vide : seul l'installateur y sera publié.
+3. Dans distribution.json :   "update_repo": "votre-pseudo/cineflux",
+4. Relancez creer_exe.bat.
+
+IMPORTANT : la version que vous donnez à vos amis doit déjà contenir
+"update_repo", sinon elle ne pourra pas se mettre à jour toute seule.
+
+Publier une nouvelle version :
+1. Changez le numéro dans version.txt (ex. 5.1.0 -> 5.0.1).
+2. Écrivez les nouveautés dans notes_version.txt (facultatif ; elles
+   s'affichent dans Réglages > À propos).
+3. Double-cliquez sur creer_exe.bat, puis sur publier_mise_a_jour.bat.
+   - Si l'outil GitHub « gh » est installé (winget install GitHub.cli, puis
+     « gh auth login »), la publication est automatique.
+   - Sinon, la page GitHub s'ouvre : glissez l'installateur indiqué,
+     cliquez sur « Publish release ».
+
+
+D. DONNER SHIPPOTV À VOS AMIS
+-----------------------------
+- Envoyez-leur le fichier Output\ShippoTV-Setup-x.y.z.exe (WeTransfer,
+  Google Drive, clé USB…). Environ 100 Mo.
+- À l'ouverture, Windows peut afficher « Windows a protégé votre
+  ordinateur » (l'installateur n'est pas signé par un éditeur payant) :
+  cliquer sur « Informations complémentaires » puis « Exécuter quand même ».
+- Au premier lancement, chacun saisit SES PROPRES identifiants Xtream.
+  N'utilisez pas le même abonnement à plusieurs : la plupart n'autorisent
+  qu'une connexion à la fois, et le fournisseur peut bloquer un compte
+  partagé.
+- La synchronisation de chacun est privée : chaque ami crée son propre
+  groupe sur ses appareils. Personne ne voit la liste des autres.
+- Les mises à jour arrivent toutes seules chez eux.
+
+
+E. RÉSUMÉ DES FICHIERS
+----------------------
+creer_exe.bat              fabrique Output\ShippoTV-Setup-x.y.z.exe
+publier_mise_a_jour.bat    publie la version sur GitHub
+lancer_sans_compiler.bat   lance ShippoTV sans installer (pour essayer)
+distribution.json          réglages intégrés au package (sync, mises à jour)
+version.txt                numéro de version
+notes_version.txt          nouveautés affichées aux utilisateurs
+outils\supabase.sql        script à exécuter une fois dans Supabase
+
+
+GARDER LA SYNCHRONISATION ACTIVE (Supabase gratuit)
+----------------------------------------------------
+Un projet Supabase gratuit se met en pause après une semaine sans aucune activité (par exemple
+si personne n'ouvre ShippoTV pendant les vacances). La synchronisation affiche alors :
+« Serveur de synchronisation en pause ». Pour le relancer : supabase.com > votre projet > Restore.
+
+Pour que ça n'arrive plus, GitHub peut faire une petite requête tous les 3 jours à votre place :
+1. Sur la page GitHub de votre dépôt : Settings > Secrets and variables > Actions > New repository secret
+     SUPABASE_URL = l'adresse du projet (https://xxxx.supabase.co)
+     SUPABASE_KEY = la clé « publishable » (sb_publishable_...), jamais la clé secrète
+2. Add file > Create new file, nom : .github/workflows/garder-supabase-actif.yml
+   Collez le contenu du fichier outils/github/garder-supabase-actif.yml, puis « Commit changes ».
+3. Onglet Actions > « Garder Supabase actif » > Run workflow, pour vérifier (coche verte).
+GitHub suspend ces tâches automatiques après 60 jours sans activité sur le dépôt : il prévient par
+e-mail, un clic suffit à les réactiver (et chaque nouvelle version publiée compte comme activité).

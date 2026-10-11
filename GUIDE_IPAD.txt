@@ -1,0 +1,53 @@
+SHIPPOTV SUR IPAD — INSTALLATION (gratuite, avec AltStore)
+=========================================================
+
+ShippoTV pour iPad est une vraie appli : même interface que sur PC et télé, lecteur VLC qui lit
+tous les formats (MKV, 4K, AC3/DTS…), synchronisation avec vos autres appareils (code de jumelage).
+
+L'appli est fabriquée automatiquement par GitHub. Le fichier à installer est ici :
+  https://github.com/Captur570/cineflux/releases/tag/ipad-beta   (fichier ShippoTV-iPad.ipa)
+
+Sans compte développeur Apple payant, on l'installe avec AltStore, un outil gratuit qui utilise
+votre identifiant Apple habituel. Contrepartie : l'appli doit être « renouvelée » tous les 7 jours,
+ce qu'AltStore fait tout seul quand votre PC est allumé sur le même Wi-Fi.
+
+
+ÉTAPE 1 — Sur le PC (une seule fois)
+------------------------------------
+1. Installez iTunes et iCloud pour Windows, versions du site d'Apple
+   (apple.com/itunes et support.apple.com, PAS celles du Microsoft Store).
+2. Téléchargez AltServer pour Windows sur https://altstore.io, installez-le et lancez-le :
+   une icône en forme de losange apparaît près de l'horloge.
+3. Branchez l'iPad en USB, déverrouillez-le et appuyez sur « Se fier à cet ordinateur ».
+4. Dans iTunes, cliquez sur l'iPad et cochez « Synchroniser avec cet iPad en Wi-Fi », puis Appliquer.
+5. Clic sur l'icône AltServer > Install AltStore > votre iPad. Saisissez votre identifiant Apple :
+   il sert uniquement à signer l'appli chez Apple.
+
+
+ÉTAPE 2 — Sur l'iPad (une seule fois)
+-------------------------------------
+1. Réglages > Général > VPN et gestion de l'appareil : touchez votre identifiant Apple > Faire confiance.
+2. Réglages > Confidentialité et sécurité > Mode développeur : activez-le (l'iPad redémarre).
+3. AltStore apparaît sur l'écran d'accueil.
+
+
+ÉTAPE 3 — Installer ShippoTV
+----------------------------
+1. Sur l'iPad, dans Safari, ouvrez le lien ci-dessus et touchez ShippoTV-iPad.ipa (téléchargement).
+2. Ouvrez AltStore > onglet « Mes apps » > « + » en haut, puis choisissez le fichier dans Téléchargements.
+3. ShippoTV s'installe. Au premier lancement, utilisez la « Configuration rapide » : sur le PC,
+   Réglages > Synchronisation > Associer un appareil, puis saisissez le code sur l'iPad.
+   Abonnement, clé TMDB, profils, liste et reprises arrivent tout seuls.
+
+
+AU QUOTIDIEN
+------------
+- Tous les 7 jours, l'appli doit être renouvelée : AltStore le fait tout seul en arrière-plan si le PC
+  (avec AltServer lancé) est allumé sur le même Wi-Fi. Sinon : AltStore > Mes apps > « Tout actualiser ».
+  Si on oublie, ShippoTV ne s'ouvre plus jusqu'au prochain renouvellement (vos données sont conservées).
+- Nouvelle version : ShippoTV vous prévient (Réglages > À propos). Retéléchargez le fichier .ipa et
+  installez-le de la même façon : vos réglages sont conservés.
+- Un identifiant Apple gratuit permet 3 applis installées ainsi (AltStore compte pour une).
+
+Plus tard, avec un compte développeur Apple (99 €/an), l'appli pourra passer par TestFlight :
+plus de renouvellement tous les 7 jours, et aussi disponible sur l'Apple TV.

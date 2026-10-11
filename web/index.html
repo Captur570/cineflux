@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ShippoTV</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="icon" href="favicon.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="ambient" aria-hidden="true"><i></i><i></i></div>
+
+<header id="nav">
+  <div class="brand" data-go="home" role="link"><img class="brand-logo" src="logo.svg" alt=""><b class="bw">Shippo<span class="tv">TV</span></b></div>
+  <nav class="links">
+    <a data-go="home" tabindex="0">Accueil</a>
+    <a data-go="movies" tabindex="0">Films</a>
+    <a data-go="series" tabindex="0">Séries</a>
+    <a data-go="live" tabindex="0">TV en direct</a>
+    <a data-go="mylist" tabindex="0">Ma liste</a>
+    <a data-go="downloads" tabindex="0">Téléchargements</a>
+  </nav>
+  <div class="tools">
+    <label class="search">
+      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input id="q" type="search" placeholder="Titres, chaînes, programmes…" autocomplete="off" spellcheck="false">
+    </label>
+    <button class="profile-btn" id="btn-profile" title="Profil et réglages"></button>
+  </div>
+</header>
+
+<div id="offline" class="offline" hidden>
+  <svg viewBox="0 0 24 24"><path d="M3 3l18 18M8.5 16.5a5 5 0 0 1 7 0M5 13a10 10 0 0 1 5-2.7M19 13a10 10 0 0 0-2.4-1.6M2 9.5a15 15 0 0 1 4.5-2.8M22 9.5A15 15 0 0 0 12 5.5"/></svg>
+  Hors ligne : le serveur ne répond pas. Vos téléchargements restent disponibles.
+</div>
+
+<div id="updating" class="updating" hidden><i class="spin"></i>Mise à jour du catalogue…</div>
+
+<main id="view"></main>
+
+<div id="modal" class="modal" hidden>
+  <div class="modal-backdrop" data-close></div>
+  <div class="modal-card" role="dialog" aria-modal="true">
+    <button class="modal-x" data-close aria-label="Fermer"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+    <div id="modal-body"></div>
+  </div>
+</div>
+
+<div id="splash" class="splash">
+  <div class="brand big"><img class="brand-logo" src="logo.svg" alt=""><b class="bw">Shippo<span class="tv">TV</span></b></div>
+  <div class="loader"><i></i></div>
+  <p id="splash-msg">Démarrage…</p>
+</div>
+
+<div id="player" hidden>
+  <video id="pv" playsinline preload="auto"></video>
+  <div class="pl-top">
+    <button class="pl-btn pl-glass" id="pl-back" title="Retour (Échap)"></button>
+    <div id="pl-logo"></div>
+    <div class="pl-titles pl-glass"><b id="pl-title"></b><span id="pl-sub"></span></div><span id="pl-res" class="pl-res" hidden></span>
+  </div>
+  <div id="pl-spin" class="pl-spin"><div class="ring"></div></div>
+  <div id="pl-resume" class="pl-resume" hidden></div>
+  <div id="pl-msg" class="pl-msg" hidden></div>
+  <button id="pl-upnext" class="pl-upnext pl-glass" type="button" hidden></button>
+  <div class="pl-bottom pl-glass">
+    <div class="pl-bar" id="pl-bar"><div class="pl-track"><div id="pl-buf" class="pl-buf"></div><div id="pl-cur" class="pl-cur"></div></div><span id="pl-tip" class="pl-tip"></span></div>
+    <div class="pl-ctrls">
+      <button class="pl-btn big" id="pl-play" title="Lecture / pause (Espace)"></button>
+      <button class="pl-btn vod" id="pl-rew" title="Reculer de 10 s (←)"></button>
+      <button class="pl-btn vod" id="pl-fwd" title="Avancer de 30 s (→)"></button>
+      <button class="pl-btn live" id="pl-prev" title="Chaîne précédente (P)"></button>
+      <button class="pl-btn live" id="pl-nextch" title="Chaîne suivante (N)"></button>
+      <button class="pl-btn" id="pl-mute" title="Couper le son (M)"></button>
+      <input type="range" id="pl-vol" min="0" max="1" step="0.02" value="1">
+      <span id="pl-time" class="pl-time"></span>
+      <span class="pl-spacer"></span>
+      <button class="pl-pill" id="pl-next" hidden></button>
+      <select id="pl-audio" class="pl-select" title="Piste audio" hidden></select>
+      <select id="pl-src" class="pl-select" title="Source / version" hidden></select>
+      <button class="pl-btn" id="pl-ext" title="Ouvrir dans le lecteur externe" hidden></button>
+      <button class="pl-btn" id="pl-fs" title="Plein écran (F)"></button>
+    </div>
+  </div>
+</div>
+
+<div id="toasts"></div>
+
+<script src="vendor/hls.min.js"></script>
+<script src="vendor/mpegts.js"></script>
+<script src="js/core.js"></script>
+<script src="js/cards.js"></script>
+<script src="js/nav.js"></script>
+<script src="js/pages.js"></script>
+<script src="js/settings.js"></script>
+<script src="js/live.js"></script>
+<script src="js/detail.js"></script>
+<script src="js/player.js"></script>
+<script src="js/boot.js"></script>
+</body>
+</html>

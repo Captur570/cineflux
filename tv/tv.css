@@ -1,0 +1,96 @@
+/* ShippoTV TV — ajustements propres à la télé (chargé après style.css) */
+html, body { cursor: none; }
+body.platform-tv [data-go="downloads"], body.platform-tv [data-a="dl"], body.platform-tv .vdl, body.platform-tv .edl,
+body.platform-tv .dl-season, body.platform-tv .dl-badge, body.platform-tv [data-pc], body.platform-tv #pl-fs,
+body.platform-tv #pl-ext, body.platform-tv #pl-vol, body.platform-tv #pl-mute { display: none !important; }
+
+/* lecteur AVPlay : la vidéo est dessinée derrière la page, qui doit être transparente à cet endroit */
+#av-player { position: fixed; left: 0; top: 0; width: 100%; height: 100%; z-index: 0; display: none; }
+body.avplay.playing #av-player { display: block; }
+html { background: transparent !important; }
+body.avplay.playing { background: transparent !important; }
+body.avplay #pv { display: none; }
+body.avplay #player { background: transparent; }
+body.avplay.playing > *:not(#player):not(#toasts):not(#av-player):not(#modal) { visibility: hidden; }
+
+/* repère de focus bien visible à 3 mètres */
+body.platform-tv #player .pl-btn:focus, body.platform-tv #player .pl-select:focus, body.platform-tv #player .pl-pill:focus,
+body.platform-tv #player button:focus { outline: 3px solid #fff; outline-offset: 3px; background: rgba(255, 255, 255, .18); }
+body.platform-tv .pl-btn { width: 56px; height: 56px; }
+body.platform-tv .pl-btn.big { width: 66px; height: 66px; }
+body.platform-tv .pl-titles b { font-size: 30px; }
+body.platform-tv .pl-titles span { font-size: 19px; }
+body.platform-tv .pl-time { font-size: 19px; }
+body.platform-tv .pl-select { height: 44px; font-size: 16px; }
+body.platform-tv .pl-pill { height: 44px; font-size: 16px; }
+body.platform-tv .pl-bottom { padding: 18px 26px 16px; }
+body.platform-tv .pl-top { padding: 32px 48px 60px; }
+
+/* pas de survol à la télécommande : l'aperçu au survol est inutile */
+body.platform-tv .pop { display: none !important; }
+
+/* sous-titres AVPlay */
+#pl-subtext { position: absolute; left: 10%; right: 10%; bottom: 120px; z-index: 2; text-align: center; white-space: pre-line;
+  font-size: 40px; font-weight: 700; line-height: 1.3; color: #fff; text-shadow: 0 0 6px #000, 0 2px 4px #000, 0 0 2px #000; }
+#player:not(.idle) #pl-subtext { bottom: 230px; }
+
+/* ---------------------------------------------------------------- fluidité (5.2)
+   Rendu allégé : pas de flou d'arrière-plan ni de grandes ombres (très coûteux sur la télé),
+   animations limitées à l'échelle et à l'opacité, qui sont calculées par la puce graphique. */
+body.platform-tv *, body.platform-tv *::before, body.platform-tv *::after { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+body.platform-tv * { transition-property: transform, opacity !important; transition-duration: .14s !important; transition-timing-function: ease-out !important; }
+body.platform-tv .card { will-change: auto; box-shadow: none !important; }
+body.platform-tv .btn-ghost { background: rgba(70, 68, 84, .92); }
+body.platform-tv .badge.dark, body.platform-tv .ev-logo, body.platform-tv .ev-tag:not(.sport):not(.film):not(.serie):not(.info):not(.show), body.platform-tv .ltab:not(.on) { background-color: rgba(16, 15, 22, .9); }
+body.platform-tv .modal-backdrop { background: rgba(5, 4, 8, .9); }
+body.platform-tv #nav { transition: none !important; }
+
+/* un seul repère de sélection, toujours le même : cadre blanc (et léger agrandissement des affiches) */
+body.platform-tv :focus, body.platform-tv :focus-visible { box-shadow: none; outline: 3px solid #fff; outline-offset: 3px; }
+body.platform-tv .card:focus, body.platform-tv .card:focus-visible { transform: scale(1.07); z-index: 4; outline: 4px solid #fff; outline-offset: 3px; border-radius: var(--radius); }
+body.platform-tv .card:hover:not(:focus) { transform: none; }
+body.platform-tv .btn:focus, body.platform-tv .chip:focus, body.platform-tv .rb:focus, body.platform-tv .ltab:focus { transform: scale(1.06); }
+body.platform-tv .btn-ghost:focus, body.platform-tv .chip:focus, body.platform-tv .ltab:focus { background: #fff; color: #111; border-color: #fff; }
+body.platform-tv .rb:focus { background: #fff; color: #111; border-color: #fff; }
+body.platform-tv .btn-play:focus { background: var(--accent); color: #fff; }
+body.platform-tv .ep:focus, body.platform-tv .version:focus { background: var(--surface-2); outline-offset: 0; }
+body.platform-tv .event:focus .ev-play, body.platform-tv .cont:focus .cont-play, body.platform-tv .ep:focus .eplay { opacity: 1; }
+body.platform-tv .links a:focus { color: #fff; outline-offset: 6px; }
+body.platform-tv input:focus, body.platform-tv select:focus { outline: 3px solid var(--accent); outline-offset: 0; }
+/* sans pointeur, rien ne doit rester « survolé » sous le curseur invisible */
+body.platform-tv.no-pointer #view, body.platform-tv.no-pointer #nav, body.platform-tv.no-pointer #modal { pointer-events: none; }
+body.platform-tv .search { width: 300px; }
+body.platform-tv .search:focus-within { width: 380px; }
+body.platform-tv.no-pointer input, body.platform-tv.no-pointer select { pointer-events: auto; }
+
+/* ---------------------------------------------------------------- thème 5.3 sur la télé
+   Même look que sur PC, mais le « verre » est simulé (pas de flou, trop coûteux pour la télé). */
+body.platform-tv #ambient i{display:none}
+body.platform-tv #ambient{background:radial-gradient(70% 60% at 15% 0%,#3a0c1c 0%,rgba(0,0,0,0) 70%),radial-gradient(60% 60% at 95% 85%,#22070f 0%,rgba(0,0,0,0) 70%),#060408}
+body.platform-tv .glass, body.platform-tv .links, body.platform-tv .search, body.platform-tv .ltab:not(.on), body.platform-tv .btn-ghost,
+body.platform-tv .rb, body.platform-tv .menu-pop, body.platform-tv .chip:not(.on), body.platform-tv .pl-glass, body.platform-tv .seg,
+body.platform-tv .back-btn, body.platform-tv .modal-x, body.platform-tv .feat .kicker {
+  background: linear-gradient(160deg, rgba(74,52,64,.92), rgba(34,22,30,.92)) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.28) !important; border-color: rgba(255,255,255,.16) !important; }
+body.platform-tv .modal-card { background: #170e14; }
+body.platform-tv .modal-backdrop { background: rgba(6,4,8,.92); }
+body.platform-tv #nav.solid { background: rgba(6,4,8,.96); }
+body.platform-tv .card:focus .poster, body.platform-tv .card:focus .ev-thumb, body.platform-tv .card:focus .thumb,
+body.platform-tv .card:hover .poster, body.platform-tv .card:hover .ev-thumb, body.platform-tv .card:hover .thumb { box-shadow: none; }
+body.platform-tv .poster::after, body.platform-tv .tile .thumb::before { display: none; }
+body.platform-tv .card:focus, body.platform-tv .card:focus-visible { transform: scale(1.07); }
+body.platform-tv .feat:hover .hero-bg { transform: scale(1.03); }
+body.platform-tv .feat { box-shadow: inset 0 0 0 1px rgba(255,255,255,.12); }
+body.platform-tv .stile:focus { transform: translateY(-5px); outline: 3px solid #fff; outline-offset: 3px; }
+body.platform-tv .links a.on { background: rgba(255,255,255,.94); color: #16070d; }
+body.platform-tv .links a:focus { outline-offset: 2px; }
+body.platform-tv .seg button:focus { outline-offset: 2px; }
+body.platform-tv .btn-play:focus { background: #fff; color: #16070d; outline: 3px solid var(--wine-2); outline-offset: 3px; }
+body.platform-tv .btn-ghost:focus, body.platform-tv .rb:focus, body.platform-tv .chip:focus, body.platform-tv .ltab:focus { background: #fff !important; color: #16070d; }
+body.platform-tv .pl-bottom { left: 48px; right: 48px; bottom: 36px; }
+body.platform-tv #player .pl-btn.big, body.platform-tv #player .pl-btn.big:focus { background: #fff; color: #16070d; }
+body.platform-tv #player .pl-btn.big:focus { outline: 4px solid var(--wine-2); outline-offset: 4px; }
+body.platform-tv .pl-resume { bottom: 210px; left: 48px; }
+body.platform-tv .pl-upnext { bottom: 210px; right: 48px; }
+body.platform-tv .pl-upnext:focus { outline: 3px solid #fff; outline-offset: 3px; }
+body.platform-tv .dhero { min-height: 74vh; padding-bottom: 70px; }

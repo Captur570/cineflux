@@ -1,0 +1,120 @@
+SHIPPOTV SUR TÉLÉ SAMSUNG — INSTALLATION
+========================================
+
+ShippoTV pour la télé est une vraie appli Samsung (comme Netflix) : elle tourne
+toute seule sur la télé, sans que le PC reste allumé. Elle s'installe depuis
+votre PC, une fois, puis à chaque nouvelle version.
+
+Ce qui marche sur la télé : films, séries, TV en direct, guide TV, « Ce soir chez
+vous », replay, reprise de lecture, épisode suivant, recommandations, recherche,
+profils, et la synchronisation avec vos PC (Réglages > Synchronisation, code de
+jumelage). Pas de téléchargements sur la télé.
+
+Télécommande :
+  OK = pause / lecture         ← / → = reculer 10 s / avancer 30 s (direct : chaîne -/+)
+  ↑ / ↓ = afficher les commandes (audio, sous-titres, source…)
+  Retour = fermer le lecteur, revenir en arrière, puis quitter
+  Touches ⏯ ⏩ ⏪ et Chaîne +/- également reconnues
+  Bande-annonce : s'ouvre dans l'appli YouTube de la télé (Retour pour revenir à ShippoTV)
+
+
+ÉTAPE 1 — Mode développeur sur la télé (déjà fait)
+--------------------------------------------------
+Apps, puis 1 2 3 4 5, Developer mode = On, Host PC IP = l'adresse IP de votre PC
+(192.168.1.44), puis redémarrage complet de la télé.
+Si l'IP du PC change un jour, il faudra la remettre ici.
+
+Notez aussi l'adresse IP de la TÉLÉ :
+Paramètres > Général et confidentialité > Réseau > État du réseau > Paramètres IP.
+
+
+MÉTHODE SIMPLE (recommandée) — sans Tizen Studio
+------------------------------------------------
+1. Double-cliquez sur « creer_appli_tv.bat » : il fabrique Output\ShippoTV-TV-x.y.z.wgt.
+2. Téléchargez l'outil gratuit Apps2Samsung (Windows) :
+   https://github.com/Apps2Samsung/Apps2Samsung  (rubrique « Releases »)
+3. Lancez-le, laissez-le trouver la télé sur le réseau, connectez votre compte Samsung
+   quand il le demande (il crée le certificat tout seul), choisissez l'installation
+   d'un fichier .wgt personnalisé et indiquez Output\ShippoTV-TV-x.y.z.wgt.
+La télé doit être en mode développeur (étape 1).
+Si cette méthode marche, inutile de lire les étapes 2 à 4 ci-dessous.
+
+
+MÉTHODE AVEC TIZEN STUDIO
+-------------------------
+ÉTAPE 2 — Installer l'outil gratuit de Samsung (une seule fois, 15 min)
+-----------------------------------------------------------------------
+1. Téléchargez « Tizen Studio with IDE installer » pour Windows 64 bits :
+   https://developer.tizen.org/development/tizen-studio/download
+2. Installez-le dans le dossier proposé (C:\tizen-studio).
+3. À la fin, le « Package Manager » s'ouvre (sinon : C:\tizen-studio\package-manager).
+   Onglet « Extension SDK » : installez
+     - Samsung Certificate Extension
+     - TV Extensions (la version la plus récente)
+   C'est assez long, laissez faire.
+
+
+ÉTAPE 3 — Relier la télé et créer votre certificat (une seule fois)
+-------------------------------------------------------------------
+La télé allumée, sur le même réseau que le PC :
+
+1. Lancez Tizen Studio. Menu Tools > Device Manager.
+   Cliquez sur l'icône « Remote Device Manager » (petit écran avec une flèche),
+   puis « + » : Name = Samsung, IP = l'IP de la télé, Port = 26101.
+   Activez l'interrupteur « Connection ». La télé apparaît dans la liste.
+
+2. Menu Tools > Certificate Manager, puis « + » :
+   - type : Samsung
+   - device type : TV
+   - Certificate profile name : ShippoTV      (exactement ce nom)
+   - « Create a new author certificate » : votre nom, un mot de passe (notez-le)
+   - connectez-vous avec votre compte Samsung (celui de la télé ou un autre)
+   - Distributor certificate : laissez « Public », vérifiez que l'identifiant
+     (DUID) de votre télé est bien dans la liste (il est ajouté tout seul quand
+     la télé est connectée, étape 3.1)
+   - Finish. Le profil ShippoTV doit être coché comme profil actif.
+
+
+ÉTAPE 4 — Installer ShippoTV sur la télé
+----------------------------------------
+Double-cliquez sur « installer_sur_tv.bat ».
+La première fois, il demande l'adresse IP de la télé (mémorisée ensuite dans tv.json).
+Il prépare l'appli, la signe avec votre certificat, l'envoie sur la télé et la lance.
+
+ShippoTV apparaît ensuite dans vos applis sur la télé. Pour l'avoir sur l'accueil :
+sélectionnez-la dans la liste des applis et choisissez « Ajouter à l'accueil »
+(ou « Déplacer »).
+
+Au premier lancement, utilisez la « Configuration rapide » : sur le PC, Réglages >
+Synchronisation > Associer un appareil (laissez cochée « Transmettre aussi mes identifiants
+IPTV »), puis saisissez le code sur la télé. Abonnement, profils, liste et reprises arrivent
+tout seuls. Sinon, entrez vos identifiants Xtream à la main.
+
+Sur la télé, un champ de texte ne s'ouvre que quand on appuie sur OK : les flèches passent
+dessus sans faire apparaître le clavier. Après la saisie, « Terminé » referme le clavier.
+
+Rappel : votre abonnement n'autorise qu'une connexion à la fois. Si vous lancez une lecture alors
+qu'un autre appareil lit déjà, ShippoTV vous le dit et propose de l'arrêter à distance.
+
+
+METTRE À JOUR LA TÉLÉ
+---------------------
+La télé vérifie toute seule les nouvelles versions et affiche « ShippoTV x.y.z est disponible »
+(aussi dans Réglages > À propos). Pour l'installer : creer_appli_tv.bat sur le PC, puis
+Apps2Samsung avec le nouveau fichier .wgt. Vos réglages restent sur la télé.
+Quand une nouvelle version de ShippoTV sort, décompressez-la à la place de l'ancienne
+et relancez installer_sur_tv.bat. Vos réglages restent sur la télé.
+
+
+SI ÇA NE MARCHE PAS
+-------------------
+- « Télé injoignable » : la télé est-elle allumée, en mode développeur, avec la bonne
+  IP du PC (étape 1) ? Le PC et la télé sont-ils sur la même box ?
+- « Signature impossible » : le profil de certificat doit s'appeler ShippoTV (étape 3.2).
+- « Installation refusée » : le certificat a été créé sans l'identifiant de cette télé.
+  Reliez la télé (étape 3.1) puis recréez le profil (étape 3.2).
+- L'appli s'ouvre mais une chaîne ou un film ne se lance pas : essayez une autre
+  source dans la fiche. La télé lit la plupart des formats (MKV, TS, HLS, 4K, HEVC) ;
+  certains sons (DTS notamment) dépendent du modèle.
+- Après une mise à jour du logiciel de la télé, le mode développeur peut se désactiver :
+  refaites l'étape 1.

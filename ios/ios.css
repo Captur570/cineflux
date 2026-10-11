@@ -1,0 +1,26 @@
+/* ShippoTV iPad — ajustements tactiles (chargé après style.css) */
+html, body { -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; }
+body.platform-ios .card, body.platform-ios .stile, body.platform-ios .btn, body.platform-ios .links a { -webkit-user-select: none; user-select: none; }
+/* pas de téléchargements ni de réglages propres au PC */
+body.platform-ios [data-go="downloads"], body.platform-ios [data-a="dl"], body.platform-ios .vdl, body.platform-ios .edl,
+body.platform-ios .dl-season, body.platform-ios .dl-badge, body.platform-ios [data-pc], body.platform-ios #pl-ext,
+body.platform-ios .arrow, body.platform-ios .pop { display: none !important; }
+/* au doigt, pas de survol : l'effet de carte se fait à l'appui */
+@media (hover: none) {
+  body.platform-ios .card:hover { transform: none; z-index: auto; }
+  body.platform-ios .card:hover .poster, body.platform-ios .card:hover .ev-thumb, body.platform-ios .card:hover .thumb { box-shadow: none; }
+  body.platform-ios .card:active { transform: scale(.96); transition-duration: .12s; }
+  body.platform-ios .btn:hover, body.platform-ios .rb:hover { transform: none; }
+  body.platform-ios .btn:active, body.platform-ios .rb:active, body.platform-ios .stile:active { transform: scale(.96); }
+  body.platform-ios .row-head .more { opacity: 1; }
+  body.platform-ios .cont-play, body.platform-ios .ev-play { display: none; }
+}
+/* défilement des rangées au doigt, avec un léger aimantage */
+body.platform-ios .rail { -webkit-overflow-scrolling: touch; scroll-snap-type: x proximity; scroll-behavior: auto; }
+body.platform-ios .rail > .card { scroll-snap-align: start; }
+/* zones tactiles confortables */
+body.platform-ios .links a { padding: 11px 20px; }
+body.platform-ios .seg button { height: 44px; }
+body.platform-ios .chip { height: 40px; }
+/* la barre du haut laisse la place à la barre d'état */
+body.platform-ios #nav { padding-top: env(safe-area-inset-top); height: calc(84px + env(safe-area-inset-top)); }

@@ -1,0 +1,8 @@
+ShippoTV 5.3.0
+- Nouveau design : bordeaux, verre liquide (PC) et version allégée et fluide sur la télé
+- Accueil : grande mise en avant, tuiles « En direct » et « Ce soir », cartes animées, fond qui prend la couleur de ce que vous survolez
+- Fiche : onglets Versions / Infos et distribution / Dans le même esprit
+- Lecteur : commandes en verre, qualité reçue affichée, carte « Épisode suivant » avec compte à rebours
+- Lecture déjà en cours sur un autre appareil : message clair et arrêt à distance en un clic
+- Synchronisation : message clair si le serveur Supabase gratuit s'est mis en pause, et fichier pour le garder actif
+- Télé : la mise à jour du catalogue ne fige plus l'interface, et la télé signale les nouvelles versions

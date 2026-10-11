@@ -1,0 +1,138 @@
+ShippoTV 5.1 — lecteur IPTV (Xtream), anciennement Cinéflux
+===========================================================
+
+1. INSTALLER
+------------
+- Installez Python 3.12 64 bits : https://www.python.org/downloads/
+  (cochez bien « Add python.exe to PATH » pendant l'installation).
+- Double-cliquez sur « creer_exe.bat ». Au bout de quelques minutes, le
+  dossier « Output » s'ouvre avec ShippoTV-Setup-5.1.0.exe.
+- Double-cliquez sur cet installateur : ShippoTV s'installe comme un vrai
+  programme (menu Démarrer, bureau, désinstallation par Windows).
+  Vos réglages, profils et historique de la version précédente sont repris.
+
+Pour le partager avec vos amis, activer la synchronisation entre vos
+appareils et les mises à jour automatiques : voir GUIDE_DISTRIBUTION.txt.
+
+Pour essayer sans installer : « lancer_sans_compiler.bat ».
+
+Sur une télé Samsung : voir GUIDE_TV.txt, puis « installer_sur_tv.bat ».
+
+
+2. PREMIER LANCEMENT
+--------------------
+- Entrez l'adresse du serveur, l'identifiant et le mot de passe Xtream
+  (ou collez directement votre lien M3U complet).
+- Les jaquettes, résumés et sélections (TMDB) fonctionnent tout de suite :
+  la clé est intégrée. Vous pouvez mettre la vôtre dans Réglages > Contenus.
+
+Le premier chargement télécharge tout le catalogue (une minute environ).
+Ensuite ShippoTV démarre instantanément et se met à jour tout seul toutes
+les 24 h, en arrière-plan.
+
+
+3. NOUVEAUTÉS
+-------------
+Version 5.1 : Cinéflux devient ShippoTV, avec son logo (un shiba noir devant
+la télé). La mise à jour remplace Cinéflux sur place : profils, historique,
+téléchargements, synchronisation et réglages sont conservés.
+
+Version 5.0 :
+Lecteur unifié
+- Films, séries et replays s'ouvrent dans la fenêtre de ShippoTV, à la même
+  place et à la même taille (ou en plein écran) ; à la fermeture, vous
+  retrouvez l'application exactement où vous étiez.
+- Nouvelles commandes : mêmes icônes et mêmes raccourcis que le lecteur du
+  direct, aperçu du temps au survol de la barre, temps restant.
+
+Continuer à regarder / À suivre
+- Quand vous finissez un épisode, l'épisode suivant apparaît dans
+  « Continuer à regarder » (bandeau « Épisode suivant »).
+- Les épisodes vus sont marqués « Vu » dans la fiche, et le bouton principal
+  devient « Épisode suivant · S02E05 ».
+- Séries suivies : à chaque mise à jour du catalogue, ShippoTV détecte les
+  nouveaux épisodes, vous prévient et ajoute un bandeau « Nouvel épisode »
+  sur l'affiche.
+
+Replay (si votre fournisseur enregistre les chaînes)
+- Fiche d'une chaîne : section « Revoir » avec les programmes des derniers
+  jours, classés par jour.
+- Programme en cours : bouton « Depuis le début ».
+- Guide TV : les programmes passés rejouables sont marqués ↺.
+
+Recommandations et recherche par personne
+- Accueil : « Recommandé pour vous » et « Parce que vous avez regardé… »,
+  propres à chaque profil, uniquement avec des titres disponibles chez vous.
+- Recherche : tapez un acteur, une actrice ou un réalisateur
+  (« Nolan », « DiCaprio »…) pour voir ses films et séries disponibles.
+
+Synchronisation entre appareils (Réglages > Synchronisation)
+- Profils, Ma liste, reprises de lecture, épisodes vus, alertes et rappels
+  identiques sur tous vos PC. Association par un code à 6 caractères, sans
+  compte, rien de lié à votre abonnement, tout est chiffré.
+
+Mises à jour automatiques
+- Une nouvelle version est proposée toute seule (« Installer ») ; ShippoTV
+  s'installe et redémarre en quelques secondes. Réglages > À propos.
+
+
+4. LE LECTEUR VIDÉO
+-------------------
+ShippoTV embarque le moteur de VLC : inutile d'installer VLC.
+- Films, séries, replays : VLC intégré (4K, HEVC, AC3/DTS, pistes audio et
+  sous-titres multiples). Reprise automatique, épisode suivant automatique.
+- Direct : lecteur rapide intégré (zapping). Si une chaîne ne passe pas,
+  VLC prend le relais tout seul.
+- Réglages > Lecture : tout sous VLC, tout dans le lecteur rapide, ou un
+  lecteur externe (mpv / VLC installé).
+
+Raccourcis (identiques dans les deux lecteurs) :
+  Espace ou Entrée = pause      ← / → = reculer 10 s / avancer 30 s
+  ↑ / ↓ = volume                M = muet
+  F ou double-clic = plein écran
+  Échap = sortir du plein écran, puis revenir à ShippoTV
+  N / P (ou Page suiv. / préc.) = épisode suivant, chaîne suivante/précédente
+  A = langue audio              S = sous-titres
+
+
+5. LE RESTE DE L'APPLICATION
+----------------------------
+- Profils « Qui regarde ? » : liste, reprise, historique, alertes et
+  recommandations propres à chacun.
+- Top 10, blockbusters, tendances, cinéma et séries français, genres… Les
+  titres absents chez votre fournisseur apparaissent grisés (« Indisponible »)
+  avec « Me prévenir ».
+- Vérification des versions : durée (versions longues comprises), année,
+  copies filmées au cinéma. Les versions douteuses sont écartées.
+- Téléchargements : films, épisodes, saisons entières ; pause automatique
+  pendant que vous regardez ; lisibles sans connexion.
+- TV : chaînes de votre pays en premier, « À la une en direct », « Ce soir
+  chez vous » (sport populaire dans votre pays uniquement), guide TV, rappels.
+- Tout se pilote aux flèches, Entrée et Retour. Réglages > Affichage > Mode
+  TV agrandit l'interface.
+
+
+6. VOS DONNÉES
+--------------
+Stockées sur votre PC dans %APPDATA%\Cineflux (identifiants, profils,
+favoris, caches). Les téléchargements vont dans Vidéos\ShippoTV.
+Avec la synchronisation, une copie chiffrée de vos profils et listes est
+envoyée au serveur de synchronisation ; vos identifiants Xtream jamais.
+À la désinstallation, Windows vous demande si vous voulez aussi effacer ces
+données.
+
+
+7. SI ÇA NE MARCHE PAS
+----------------------
+- « Serveur injoignable » : vérifiez l'adresse (avec http:// et le port,
+  par ex. http://exemple.com:8080).
+- Une chaîne ne se lance pas : essayez une autre source dans sa fiche, ou
+  passez le « Format des chaînes » sur HLS (.m3u8) dans les réglages.
+- Pas de section « Revoir » sur une chaîne : votre fournisseur ne propose
+  pas le replay pour celle-ci.
+- La fenêtre reste blanche : installez « Microsoft Edge WebView2 Runtime »
+  (déjà présent sur la plupart des Windows 10/11).
+- Windows affiche « Windows a protégé votre ordinateur » en lançant
+  l'installateur : « Informations complémentaires » > « Exécuter quand même ».
+
+Ce produit utilise l'API TMDB mais n'est ni approuvé ni certifié par TMDB.
