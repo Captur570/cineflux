@@ -24,11 +24,13 @@ ce qu'AltStore fait tout seul quand votre PC est allumé sur le même Wi-Fi.
    il sert uniquement à signer l'appli chez Apple.
 
 
-ÉTAPE 2 — Sur l'iPad (une seule fois)
--------------------------------------
+ÉTAPE 2 — Sur l'iPad (une seule fois, APRÈS l'étape 1)
+-----------------------------------------------------
+Ces réglages n'existent pas tant qu'AltStore n'est pas installé : c'est normal de ne pas les trouver avant.
 1. Réglages > Général > VPN et gestion de l'appareil : touchez votre identifiant Apple > Faire confiance.
-2. Réglages > Confidentialité et sécurité > Mode développeur : activez-le (l'iPad redémarre).
-3. AltStore apparaît sur l'écran d'accueil.
+2. Réglages > Confidentialité et sécurité, tout en bas > Mode développeur : activez-le (l'iPad redémarre,
+   confirmez ensuite). S'il n'apparaît pas, ouvrez une fois AltStore puis revenez dans ce menu.
+3. AltStore s'ouvre normalement. (Pas besoin de l'iPhone : l'appli est pour iPad.)
 
 
 ÉTAPE 3 — Installer ShippoTV
