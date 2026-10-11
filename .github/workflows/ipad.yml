@@ -39,7 +39,8 @@ jobs:
           set -o pipefail
           xcodebuild -workspace ShippoTV.xcworkspace -scheme ShippoTV -configuration Release -sdk iphoneos \
             -destination 'generic/platform=iOS' -derivedDataPath build/dev \
-            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build 2>&1 | tee build-dev.log | grep -E "error:|warning: .*Swift|BUILD (SUCCEEDED|FAILED)" || true
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build > build-dev.log 2>&1 || true
+          grep -E "error:|BUILD (SUCCEEDED|FAILED)" build-dev.log | head -60 || true
           test -d build/dev/Build/Products/Release-iphoneos/ShippoTV.app
           rm -rf Payload && mkdir Payload
           cp -R build/dev/Build/Products/Release-iphoneos/ShippoTV.app Payload/
@@ -56,16 +57,6 @@ jobs:
         with:
           name: ShippoTV-iPad
           path: ios/ShippoTV-iPad.ipa
-      - name: Publication (téléchargement direct depuis l'iPad)
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ipad-beta
-          name: ShippoTV iPad (bêta)
-          prerelease: true
-          files: ios/ShippoTV-iPad.ipa
-          body: |
-            Version iPad de ShippoTV, fabriquée automatiquement (version ${{ github.run_number }}).
-            À installer avec AltStore : voir GUIDE_IPAD.txt.
       - name: Fabrication pour le simulateur
         continue-on-error: true
         working-directory: ios
@@ -73,7 +64,8 @@ jobs:
           set -o pipefail
           xcodebuild -workspace ShippoTV.xcworkspace -scheme ShippoTV -configuration Debug -sdk iphonesimulator \
             -destination 'generic/platform=iOS Simulator' -derivedDataPath build/sim \
-            CODE_SIGNING_ALLOWED=NO build 2>&1 | tee build-sim.log | grep -E "error:|BUILD (SUCCEEDED|FAILED)" || true
+            CODE_SIGNING_ALLOWED=NO build > build-sim.log 2>&1 || true
+          grep -E "error:|BUILD (SUCCEEDED|FAILED)" build-sim.log | head -60 || true
       - name: Captures d'écran
         continue-on-error: true
         run: python3 ios/ci/screens.py
@@ -83,3 +75,17 @@ jobs:
         with:
           name: captures
           path: ios/ci/out/
+      - name: Publication (fichier .ipa, captures et journaux, téléchargeables depuis l'iPad)
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view ipad-beta >/dev/null 2>&1 || gh release create ipad-beta --prerelease --title "ShippoTV iPad (bêta)" \
+            --notes "Version iPad de ShippoTV, fabriquée automatiquement. À installer avec AltStore : voir GUIDE_IPAD.txt."
+          mkdir -p pub
+          [ -f ios/ShippoTV-iPad.ipa ] && cp ios/ShippoTV-iPad.ipa pub/
+          for f in ios/ci/out/*.png ios/ci/out/journal.txt; do [ -f "$f" ] && cp "$f" "pub/capture-$(basename "$f")"; done
+          for f in ios/build-dev.log ios/build-sim.log; do [ -f "$f" ] && grep -E "error|warning: .*\.swift|BUILD" "$f" | tail -300 > "pub/$(basename "$f" .log)-resume.txt"; done
+          echo "run ${{ github.run_number }} $(date -u)" > pub/fabrication.txt
+          ls -la pub
+          gh release upload ipad-beta pub/* --clobber
