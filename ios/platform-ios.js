@@ -25,7 +25,7 @@
       return call0.call(this, path, body, prof);
     };
     const go2 = () => {
-      if (!window.S || !S.cat) return setTimeout(go2, 500);
+      if (typeof S === 'undefined' || !S.cat || !S.cat.movies || !S.cat.movies.length) return setTimeout(go2, 500);
       setTimeout(() => {
         if (T.route === 'detail') openDetail('movie', S.cat.movies.find(m => /dune/i.test(m.t)) || S.cat.movies[0]);
         else if (T.route === 'live') go('live');
