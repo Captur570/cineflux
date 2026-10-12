@@ -3,13 +3,13 @@
 name: Appli iPad
 on:
   push:
-    branches: [main]
+    branches: [main, vlc4]
     paths: ["ios/**", "web/**", "tv/engine/**", "outils/build_ios.py", ".github/workflows/ipad.yml", "version.txt"]
   workflow_dispatch:
 permissions:
   contents: write
 concurrency:
-  group: ipad
+  group: ipad-${{ github.ref_name }}
   cancel-in-progress: true
 jobs:
   ipad:
@@ -80,12 +80,15 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release view ipad-beta >/dev/null 2>&1 || gh release create ipad-beta --prerelease --title "ShippoTV iPad (bêta)" \
+          # branche main : version normale ; branche vlc4 : version d'essai avec VLC 4, publiée à part
+          if [ "${{ github.ref_name }}" = "main" ]; then TAG=ipad-beta; IPA=ShippoTV-iPad.ipa; TITLE="ShippoTV iPad (bêta)"
+          else TAG=ipad-vlc4; IPA=ShippoTV-iPad-VLC4.ipa; TITLE="ShippoTV iPad — essai VLC 4"; fi
+          gh release view $TAG >/dev/null 2>&1 || gh release create $TAG --prerelease --target "${{ github.sha }}" --title "$TITLE" \
             --notes "Version iPad de ShippoTV, fabriquée automatiquement. À installer avec AltStore : voir GUIDE_IPAD.txt."
           mkdir -p pub
-          [ -f ios/ShippoTV-iPad.ipa ] && cp ios/ShippoTV-iPad.ipa pub/
+          [ -f ios/ShippoTV-iPad.ipa ] && cp ios/ShippoTV-iPad.ipa pub/$IPA
           for f in ios/ci/out/*.png ios/ci/out/journal.txt; do [ -f "$f" ] && cp "$f" "pub/capture-$(basename "$f")"; done
           for f in ios/build-dev.log ios/build-sim.log; do [ -f "$f" ] && grep -E "error|warning: .*\.swift|BUILD" "$f" | tail -300 > "pub/$(basename "$f" .log)-resume.txt"; done
           echo "run ${{ github.run_number }} $(date -u)" > pub/fabrication.txt
           ls -la pub
-          gh release upload ipad-beta pub/* --clobber
+          gh release upload $TAG pub/* --clobber
