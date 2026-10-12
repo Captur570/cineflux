@@ -109,7 +109,11 @@ final class PlayerViewController: UIViewController {
         idx = i
         hideMessage()
         spinner.startAnimating()
+        #if canImport(VLCKit)
+        guard let m = VLCMedia(url: url) else { showMessage("Adresse de la vidéo invalide."); return }
+        #else
         let m = VLCMedia(url: url)
+        #endif
         m.addOption(":network-caching=\(live ? 2500 : 1500)")
         m.addOption(":http-reconnect")
         if let extra = ProcessInfo.processInfo.environment["SHIPPO_MEDIAOPTS"], !extra.isEmpty {
@@ -182,7 +186,11 @@ final class PlayerViewController: UIViewController {
         case .ended, .stopped:
         #endif
             if played && !closing { finishedOrCut() }
+        #if canImport(VLCKit)
+        case .opening:
+        #else
         case .opening, .buffering:
+        #endif
             if !mp.isPlaying { spinner.startAnimating() }
             if !played && Date().timeIntervalSince(loadTime) > 20 { fail() }
         default:
