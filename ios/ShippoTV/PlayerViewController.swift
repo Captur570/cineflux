@@ -1,5 +1,9 @@
 import UIKit
+#if canImport(VLCKit)
+import VLCKit          // VLC 4 (essai) : sous-titres dans les bandes noires
+#else
 import MobileVLCKit
+#endif
 
 /// Lecteur plein écran (VLC : MKV, TS, HLS, AC3/DTS, 4K…) habillé dans le style de ShippoTV :
 /// commandes en verre, barre de progression bordeaux, carte « Épisode suivant ».
@@ -172,7 +176,11 @@ final class PlayerViewController: UIViewController {
         switch st {
         case .error:
             fail()
+        #if canImport(VLCKit)
+        case .stopped:
+        #else
         case .ended, .stopped:
+        #endif
             if played && !closing { finishedOrCut() }
         case .opening, .buffering:
             if !mp.isPlaying { spinner.startAnimating() }
@@ -262,7 +270,7 @@ final class PlayerViewController: UIViewController {
         guard length > 0 else { return }
         if Thread.isMainThread { haptic.impactOccurred(intensity: 0.6) }
         let t = min(max(0, lastPos + d), length - 1)
-        mp.time = VLCTime(int: Int32(t * 1000))
+        mp.time = VLCTime(number: NSNumber(value: Int32(t * 1000)))
         lastPos = t
     }
 
@@ -275,7 +283,7 @@ final class PlayerViewController: UIViewController {
         scrubbing = false
         guard length > 0 else { return }
         let t = Double(slider.value) * length
-        mp.time = VLCTime(int: Int32(t * 1000))
+        mp.time = VLCTime(number: NSNumber(value: Int32(t * 1000)))
         lastPos = t
         showControls()
     }
@@ -315,6 +323,30 @@ final class PlayerViewController: UIViewController {
     // MARK: - Menus (pistes audio, sous-titres, version)
 
     private func rebuildTrackMenus() {
+        #if canImport(VLCKit)
+        let atracks = mp.audioTracks
+        let audio = atracks.map { t in
+            UIAction(title: t.trackName, state: t.isSelected ? .on : .off) { [weak self] _ in
+                t.isSelectedExclusively = true
+                self?.rebuildTrackMenus()
+            }
+        }
+        audioBtn.menu = UIMenu(title: "Langue", children: audio)
+        audioBtn.isHidden = audio.count < 2
+        let ttracks = mp.textTracks
+        var subs = [UIAction(title: "Sans sous-titres", state: ttracks.contains { $0.isSelected } ? .off : .on) { [weak self] _ in
+            self?.mp.deselectAllTextTracks()
+            self?.rebuildTrackMenus()
+        }]
+        subs += ttracks.map { t in
+            UIAction(title: t.trackName, state: t.isSelected ? .on : .off) { [weak self] _ in
+                t.isSelectedExclusively = true
+                self?.rebuildTrackMenus()
+            }
+        }
+        subsBtn.menu = UIMenu(title: "Sous-titres", children: subs)
+        subsBtn.isHidden = ttracks.isEmpty
+        #else
         let names = (mp.audioTrackNames as? [String]) ?? []
         let ids = (mp.audioTrackIndexes as? [NSNumber]) ?? []
         let cur = mp.currentAudioTrackIndex
@@ -337,6 +369,7 @@ final class PlayerViewController: UIViewController {
         }
         subsBtn.menu = UIMenu(title: "Sous-titres", children: subs)
         subsBtn.isHidden = subs.count < 2
+        #endif
     }
 
     private func rebuildSourceMenu() {

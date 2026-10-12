@@ -4,7 +4,7 @@ use_frameworks!
 inhibit_all_warnings!
 
 target 'ShippoTV' do
-  pod 'MobileVLCKit', '~> 3.6.0'
+  pod 'VLCKit', '4.0.0a25'          # essai : VLC 4
 end
 
 post_install do |installer|
