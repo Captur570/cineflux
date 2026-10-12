@@ -177,24 +177,22 @@ final class PlayerViewController: UIViewController {
             }
             if retries > 0 && t - retryAt > 90 { retries = 0 }
         }
-        switch st {
-        case .error:
+        #if canImport(VLCKit)
+        let isEnd = st == .stopped
+        let isLoading = st == .opening
+        #else
+        let isEnd = st == .ended || st == .stopped
+        let isLoading = st == .opening || st == .buffering
+        #endif
+        if st == .error {
             fail()
-        #if canImport(VLCKit)
-        case .stopped:
-        #else
-        case .ended, .stopped:
-        #endif
+        } else if isEnd {
             if played && !closing { finishedOrCut() }
-        #if canImport(VLCKit)
-        case .opening:
-        #else
-        case .opening, .buffering:
-        #endif
+        } else if isLoading {
             if !mp.isPlaying { spinner.startAnimating() }
             if !played && Date().timeIntervalSince(loadTime) > 20 { fail() }
-        default:
-            if mp.isPlaying { spinner.stopAnimating() }
+        } else if mp.isPlaying {
+            spinner.stopAnimating()
         }
         playBtn.setImage(UIImage(systemName: mp.isPlaying ? "pause.fill" : "play.fill"), for: .normal)
         if !live && !scrubbing && length > 0 {
