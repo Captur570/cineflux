@@ -8,7 +8,12 @@ final class PlayerViewController: UIViewController {
     var onEvent: (([String: Any]) -> Void)?
     var onDismiss: (() -> Void)?
 
-    private let mp = VLCMediaPlayer()
+    private let mp: VLCMediaPlayer = {
+        // essai (fabrication GitHub) : position des sous-titres réglée pour tout le lecteur
+        let env = ProcessInfo.processInfo.environment
+        if let m = env["SHIPPO_SUBLIB"], !m.isEmpty { return VLCMediaPlayer(options: ["--sub-margin=\(m)"]) }
+        return VLCMediaPlayer()
+    }()
     private let videoView = UIView()
     private var streams: [[String: Any]] = []
     private var idx = 0
@@ -108,6 +113,7 @@ final class PlayerViewController: UIViewController {
         let m = VLCMedia(url: url)
         m.addOption(":network-caching=\(live ? 2500 : 1500)")
         m.addOption(":http-reconnect")
+        if let sm = ProcessInfo.processInfo.environment["SHIPPO_SUBMEDIA"], !sm.isEmpty { m.addOption(":sub-margin=\(sm)") }
         if at > 1 { m.addOption(":start-time=\(Int(at))") }
         mp.media = m
         mp.play()

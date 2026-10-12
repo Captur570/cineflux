@@ -63,6 +63,22 @@ def main():
               "--predicate", 'process == "ShippoTV"', check=False).stdout
     with open(os.path.join(OUT, "journal.txt"), "w") as f:
         f.write(logs[-200000:])
+    # sous-titres d'un film « cinémascope » : où VLC les place-t-il selon le réglage ?
+    for name, lib, media in [("subs-defaut", "", ""), ("subs-lib-200", "-200", ""), ("subs-lib-5000", "-5000", ""), ("subs-media-200", "", "-200")]:
+        sh("xcrun", "simctl", "terminate", udid, BUNDLE, check=False)
+        test = {"server": "127.0.0.1:8799", "user": "demo", "pass": "demo", "country": "FR", "route": "subs"}
+        env = dict(os.environ, SIMCTL_CHILD_SHIPPO_TEST=json.dumps(test), SIMCTL_CHILD_SHIPPO_SUBLIB=lib, SIMCTL_CHILD_SHIPPO_SUBMEDIA=media)
+        sh("xcrun", "simctl", "launch", udid, BUNDLE, env=env, check=False)
+        time.sleep(20)
+        path = os.path.join(OUT, f"{name}.png")
+        sh("xcrun", "simctl", "io", udid, "screenshot", path, check=False)
+        info = sh("sips", "-g", "pixelWidth", "-g", "pixelHeight", path, check=False).stdout
+        try:
+            w = int(info.split("pixelWidth:")[1].split()[0]); h = int(info.split("pixelHeight:")[1].split()[0])
+            if h > w:
+                sh("sips", "-r", "270", path, check=False)
+        except (IndexError, ValueError):
+            pass
     mock.terminate()
 
 

@@ -30,6 +30,7 @@
         if (T.route === 'detail') openDetail('movie', S.cat.movies.find(m => /dune/i.test(m.t)) || S.cat.movies[0]);
         else if (T.route === 'live') go('live');
         else if (T.route === 'settings') go('settings');
+        else if (T.route === 'subs') native({ cmd: 'play', title: 'Test sous-titres', sub: '2.39:1', live: false, streams: [{ url: 'http://' + T.server + '/scope.mkv', label: 'MKV' }], start: 0, next: false });
         else if (T.route === 'player') playMovie(S.cat.movies.find(m => /dune/i.test(m.t)) || S.cat.movies[0]);
       }, 4000);
     };

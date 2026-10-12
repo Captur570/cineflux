@@ -76,6 +76,8 @@ class H(BaseHTTPRequestHandler):
         if u.path.startswith("/badge/"):
             return self.file(os.path.join(HERE, "media", "badge.png"), "image/png")
         M = os.path.join(HERE, "media") + "/"
+        if u.path == "/scope.mkv":
+            return self.file(M + "scope.mkv", "video/x-matroska")
         if u.path.startswith("/live/"):
             self.send_response(302); self.send_header("Location", "http://127.0.0.1:8799/hls/index.m3u8?tok=abc"); self.send_header("Content-Length", "0"); self.end_headers(); return
         if u.path.startswith("/hls/"):
