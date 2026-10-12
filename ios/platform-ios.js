@@ -36,6 +36,62 @@
     if (T.route && T.route !== 'home') setTimeout(go2, 1000);
   }
 
+
+  /* ------------------------------------------------------------ appui actif + petite vibration */
+  document.addEventListener('touchstart', () => {}, { passive: true });   // active :active sur iOS
+  let lastHaptic = 0;
+  document.addEventListener('click', e => {
+    if (!e.target.closest('.links a, .card, .btn, .seg button, .stile, .feat, .rb, .chip, .brand, .profile-btn, .back-btn')) return;
+    const t = Date.now();
+    if (t - lastHaptic < 60) return;
+    lastHaptic = t;
+    native({ cmd: 'haptic' }).catch(() => {});
+  }, true);
+
+  /* ------------------------------------------------------------ onglets du haut : pastille qui glisse */
+  const links = document.querySelector('#nav .links');
+  const ind = document.createElement('i');
+  ind.className = 'links-ind no-anim';
+  if (links) links.prepend(ind);
+  let indReady = false;
+  function placeInd() {
+    if (!links) return;
+    const a = links.querySelector('a.on');
+    if (!a || !a.offsetWidth) { ind.style.opacity = '0'; return; }
+    ind.style.opacity = '1';
+    ind.style.width = a.offsetWidth + 'px';
+    ind.style.transform = `translateX(${a.offsetLeft}px)`;
+    if (!indReady) { indReady = true; requestAnimationFrame(() => requestAnimationFrame(() => ind.classList.remove('no-anim'))); }
+  }
+  window.addEventListener('resize', () => { ind.classList.add('no-anim'); placeInd(); indReady = false; });
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { ind.classList.add('no-anim'); indReady = false; placeInd(); });
+
+  /* ------------------------------------------------------------ changement de page animé */
+  let dir = '';
+  const go0 = go, back0 = back, render0 = render;
+  // eslint-disable-next-line no-global-assign
+  go = function (...a) { dir = 'fwd'; return go0.apply(this, a); };
+  // eslint-disable-next-line no-global-assign
+  back = function (...a) { if ($('#modal').hidden) dir = 'back'; return back0.apply(this, a); };
+  let enterTimer = 0;
+  // eslint-disable-next-line no-global-assign
+  render = function (...a) {
+    const r = render0.apply(this, a);
+    placeInd();
+    if (dir) {
+      const v = $('#view');
+      v.classList.remove('enter', 'back');
+      void v.offsetWidth;
+      v.classList.add('enter');
+      if (dir === 'back') v.classList.add('back');
+      clearTimeout(enterTimer);
+      enterTimer = setTimeout(() => v.classList.remove('enter', 'back'), 1400);
+      dir = '';
+    }
+    return r;
+  };
+  window.IOS_BACK = () => { if (!P.o) back(); };
+
   /* ------------------------------------------------------------ bande-annonce : appli YouTube */
   window.TV_TRAILER = key => native({ cmd: 'openURL', url: 'https://www.youtube.com/watch?v=' + encodeURIComponent(key) })
     .catch(() => toast("Impossible d'ouvrir YouTube", 'warn'));

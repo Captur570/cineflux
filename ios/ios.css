@@ -24,3 +24,77 @@ body.platform-ios .seg button { height: 44px; }
 body.platform-ios .chip { height: 40px; }
 /* la barre du haut laisse la place à la barre d'état */
 body.platform-ios #nav { padding-top: env(safe-area-inset-top); height: calc(84px + env(safe-area-inset-top)); }
+
+/* ================================================================ fluidité (iPad)
+   Le flou géant du fond et les petits flous sous chaque badge coûtent très cher à WebKit :
+   on garde le verre là où il se voit (barre du haut, onglets, fenêtres) et on simplifie le reste. */
+body.platform-ios #ambient i { filter: none; opacity: .7;
+  -webkit-mask-image: radial-gradient(closest-side, #000 0%, rgba(0,0,0,.55) 45%, transparent 100%);
+          mask-image: radial-gradient(closest-side, #000 0%, rgba(0,0,0,.55) 45%, transparent 100%); }
+body.platform-ios #ambient i:nth-child(2) { opacity: .55; }
+body.platform-ios #nav.solid { backdrop-filter: none; -webkit-backdrop-filter: none; background: linear-gradient(180deg, rgba(6,4,8,.92), rgba(6,4,8,.55)); }
+body.platform-ios .badge.dark, body.platform-ios .ev-logo, body.platform-ios .ev-tag, body.platform-ios .ltab,
+body.platform-ios .btn-ghost, body.platform-ios .rb, body.platform-ios .chip, body.platform-ios .back-btn,
+body.platform-ios .cont-play .ic, body.platform-ios .ev-play .ic, body.platform-ios .modal-x {
+  backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+body.platform-ios .btn-ghost, body.platform-ios .rb:not(.on), body.platform-ios .chip:not(.on), body.platform-ios .back-btn, body.platform-ios .modal-x { background: rgba(58, 40, 50, .82); }
+body.platform-ios .ltab { background: rgba(40, 28, 36, .9); }
+body.platform-ios .links, body.platform-ios .search, body.platform-ios .seg, body.platform-ios .menu-pop {
+  backdrop-filter: blur(22px) saturate(180%); -webkit-backdrop-filter: blur(22px) saturate(180%); }
+body.platform-ios .modal-backdrop { backdrop-filter: none; -webkit-backdrop-filter: none; background: rgba(6,4,8,.78); }
+/* les rangées hors de l'écran ne sont pas dessinées */
+body.platform-ios .row { content-visibility: auto; contain-intrinsic-size: auto 340px; }
+/* défilement des rangées sur la carte graphique */
+body.platform-ios .rail { transform: translateZ(0); }
+
+/* ================================================================ animations (iPad) */
+:root { --spring: cubic-bezier(.32, 1.45, .5, 1); --out: cubic-bezier(.16, .84, .26, 1); }
+
+/* onglets du haut : la pastille blanche glisse d'un onglet à l'autre, avec un léger rebond */
+body.platform-ios .links { position: relative; }
+body.platform-ios .links a { position: relative; z-index: 1; transition: color .35s var(--out); }
+body.platform-ios .links a.on, body.platform-ios .links a:hover { background: transparent; }
+body.platform-ios .links-ind { position: absolute; z-index: 0; top: 6px; left: 0; height: calc(100% - 12px); width: 0;
+  border-radius: 999px; background: rgba(255,255,255,.95);
+  box-shadow: 0 6px 18px rgba(0,0,0,.28), inset 0 1px 0 #fff;
+  transition: transform .55s var(--spring), width .55s var(--spring), opacity .3s; pointer-events: none; }
+body.platform-ios .links-ind.no-anim { transition: none; }
+body.platform-ios .links.press .links-ind { transform-origin: center; }
+body.platform-ios #nav .links { transition: transform .4s var(--out), box-shadow .4s; }
+body.platform-ios #nav.solid .links { transform: scale(.97); }
+
+/* arrivée d'une page : fondu + glissement, éléments en cascade */
+@keyframes iosIn { from { opacity: 0; transform: translate3d(var(--dx, 26px), 14px, 0) scale(.985); } }
+@keyframes iosCard { from { opacity: 0; transform: translate3d(34px, 0, 0) scale(.94); } }
+#view.enter > * { animation: iosIn .6s var(--out) both; }
+#view.enter.back { --dx: -26px; }
+#view.enter > :nth-child(2) { animation-delay: .06s; }
+#view.enter > :nth-child(3) { animation-delay: .12s; }
+#view.enter > :nth-child(4) { animation-delay: .17s; }
+#view.enter > :nth-child(n+5) { animation-delay: .21s; }
+#view.enter .rail > .card:nth-child(-n+7) { animation: iosCard .7s var(--out) both; }
+#view.enter .rail > .card:nth-child(1) { animation-delay: .10s; }
+#view.enter .rail > .card:nth-child(2) { animation-delay: .15s; }
+#view.enter .rail > .card:nth-child(3) { animation-delay: .20s; }
+#view.enter .rail > .card:nth-child(4) { animation-delay: .25s; }
+#view.enter .rail > .card:nth-child(5) { animation-delay: .30s; }
+#view.enter .rail > .card:nth-child(6) { animation-delay: .35s; }
+#view.enter .rail > .card:nth-child(7) { animation-delay: .40s; }
+/* l'image de la fiche s'ouvre en douceur */
+#view.enter .dhero-bg, #view.enter .hero-bg { animation: heroIn 1.1s var(--out) both; }
+
+/* appui : la carte s'enfonce puis rebondit au relâchement */
+@media (hover: none) {
+  body.platform-ios .card, body.platform-ios .stile, body.platform-ios .feat, body.platform-ios .btn, body.platform-ios .rb,
+  body.platform-ios .chip, body.platform-ios .seg button, body.platform-ios .links a {
+    transition: transform .5s var(--spring), background .25s, color .3s; }
+  body.platform-ios .card:active, body.platform-ios .stile:active, body.platform-ios .feat:active { transform: scale(.95); transition: transform .14s ease-out; }
+  body.platform-ios .btn:active, body.platform-ios .rb:active, body.platform-ios .chip:active,
+  body.platform-ios .seg button:active { transform: scale(.92); transition: transform .12s ease-out; }
+  body.platform-ios .links a:active { transform: scale(.94); transition: transform .12s ease-out; }
+}
+/* onglets de la fiche : le contenu change en fondu */
+body.platform-ios .dbody.tabbed > * { animation: iosIn .45s var(--out) both; --dx: 0px; }
+@media (prefers-reduced-motion: reduce) {
+  #view.enter > *, #view.enter .rail > .card, body.platform-ios .dbody.tabbed > * { animation: none !important; }
+}

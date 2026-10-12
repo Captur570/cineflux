@@ -32,7 +32,7 @@ final class PlayerViewController: UIViewController {
 
     // interface
     private let accent = UIColor(red: 214 / 255, green: 55 / 255, blue: 95 / 255, alpha: 1)
-    private let topBar = UIStackView()
+    private let topBar = PassThroughStack()
     private let closeBtn = UIButton(type: .system)
     private let titleBox = GlassView(radius: 20)
     private let titleLabel = UILabel()
@@ -55,6 +55,14 @@ final class PlayerViewController: UIViewController {
     private let upNext = GlassView(radius: 22)
     private let upLabel = UILabel()
     private var controlsVisible = true
+    // gestes : 1 tap = commandes, 2 taps = ±10 s, 3 taps = ±30 s
+    private let touchLayer = UIView()
+    private var tapCount = 0
+    private var tapPoint = CGPoint.zero
+    private var tapTimer: Timer?
+    private let seekBubble = GlassView(radius: 60)
+    private let seekLabel = UILabel()
+    private let haptic = UIImpactFeedbackGenerator(style: .light)
 
     override var prefersStatusBarHidden: Bool { true }
     override var prefersHomeIndicatorAutoHidden: Bool { true }
@@ -118,9 +126,17 @@ final class PlayerViewController: UIViewController {
         videoView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         view.addSubview(videoView)
         mp.drawable = videoView
+        // la vue vidéo de VLC garde les touchers pour elle : on pose une couche tactile au-dessus
+        videoView.isUserInteractionEnabled = false
+        touchLayer.frame = view.bounds
+        touchLayer.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        touchLayer.backgroundColor = .clear
+        view.addSubview(touchLayer)
+        let tap = UITapGestureRecognizer(target: self, action: #selector(tapped(_:)))
+        tap.cancelsTouchesInView = false
+        touchLayer.addGestureRecognizer(tap)
         buildUI()
-        let tap = UITapGestureRecognizer(target: self, action: #selector(toggleControls))
-        view.addGestureRecognizer(tap)
+        buildSeekBubble()
         pollTimer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] _ in self?.tick() }
     }
 
@@ -241,6 +257,7 @@ final class PlayerViewController: UIViewController {
 
     private func seek(_ d: Double) {
         guard length > 0 else { return }
+        if Thread.isMainThread { haptic.impactOccurred(intensity: 0.6) }
         let t = min(max(0, lastPos + d), length - 1)
         mp.time = VLCTime(int: Int32(t * 1000))
         lastPos = t
@@ -347,9 +364,71 @@ final class PlayerViewController: UIViewController {
         if controlsVisible { hideControls() } else { showControls() }
     }
 
+    /// Les taps sont comptés pendant un court instant : 1 = commandes, 2 = ±10 s, 3 et plus = ±30 s.
+    /// Côté gauche de l'écran : on recule ; côté droit : on avance.
+    @objc private func tapped(_ g: UITapGestureRecognizer) {
+        let pt = g.location(in: view)
+        let canSeek = !live && length > 0 && msgBox.isHidden
+        if tapCount > 0 && canSeek && (pt.x < view.bounds.midX) != (tapPoint.x < view.bounds.midX) { tapCount = 0 }
+        tapCount += 1
+        tapPoint = pt
+        tapTimer?.invalidate()
+        if tapCount >= 2 && canSeek { haptic.impactOccurred(); showSeekPreview() }
+        tapTimer = Timer.scheduledTimer(withTimeInterval: tapCount >= 2 ? 0.42 : 0.28, repeats: false) { [weak self] _ in
+            self?.resolveTaps(canSeek: canSeek)
+        }
+    }
+
+    private func resolveTaps(canSeek: Bool) {
+        let n = tapCount
+        tapCount = 0
+        if n <= 1 || !canSeek { toggleControls(); return }
+        let forward = tapPoint.x >= view.bounds.midX
+        seek((n >= 3 ? 30 : 10) * (forward ? 1 : -1))
+        hideSeekBubble()
+    }
+
+    private func buildSeekBubble() {
+        seekLabel.font = .systemFont(ofSize: 22, weight: .heavy)
+        seekLabel.textColor = .white
+        seekLabel.textAlignment = .center
+        seekLabel.numberOfLines = 2
+        seekLabel.frame = CGRect(x: 0, y: 0, width: 120, height: 120)
+        seekBubble.contentView.addSubview(seekLabel)
+        seekBubble.frame = CGRect(x: 0, y: 0, width: 120, height: 120)
+        seekBubble.alpha = 0
+        seekBubble.isUserInteractionEnabled = false
+        view.insertSubview(seekBubble, aboveSubview: touchLayer)
+    }
+
+    private func showSeekPreview() {
+        let forward = tapPoint.x >= view.bounds.midX
+        let secs = tapCount >= 3 ? 30 : 10
+        let arrow = UIImage(systemName: forward ? "goforward" : "gobackward")
+        let txt = NSMutableAttributedString(attachment: NSTextAttachment(image: arrow!.withTintColor(.white)))
+        txt.append(NSAttributedString(string: "\n\(forward ? "+" : "−")\(secs) s"))
+        seekLabel.attributedText = txt
+        let w = view.bounds.width
+        seekBubble.center = CGPoint(x: forward ? w * 0.78 : w * 0.22, y: view.bounds.midY)
+        seekBubble.transform = CGAffineTransform(scaleX: 0.7, y: 0.7)
+        UIView.animate(withDuration: 0.32, delay: 0, usingSpringWithDamping: 0.55, initialSpringVelocity: 0.8,
+                       options: [.allowUserInteraction, .beginFromCurrentState]) {
+            self.seekBubble.alpha = 1
+            self.seekBubble.transform = .identity
+        }
+    }
+
+    private func hideSeekBubble() {
+        UIView.animate(withDuration: 0.3, delay: 0.25, options: [.allowUserInteraction, .beginFromCurrentState]) {
+            self.seekBubble.alpha = 0
+            self.seekBubble.transform = CGAffineTransform(scaleX: 1.15, y: 1.15)
+        }
+    }
+
     private func showControls() {
         controlsVisible = true
-        UIView.animate(withDuration: 0.25) {
+        UIView.animate(withDuration: 0.3, delay: 0, usingSpringWithDamping: 0.85, initialSpringVelocity: 0.4,
+                       options: [.allowUserInteraction, .beginFromCurrentState]) {
             self.topBar.alpha = 1
             self.bottomBar.alpha = 1
             self.bottomBar.transform = .identity
@@ -363,7 +442,7 @@ final class PlayerViewController: UIViewController {
 
     private func hideControls() {
         controlsVisible = false
-        UIView.animate(withDuration: 0.35) {
+        UIView.animate(withDuration: 0.35, delay: 0, options: [.allowUserInteraction, .beginFromCurrentState]) {
             self.topBar.alpha = 0
             self.bottomBar.alpha = 0
             self.bottomBar.transform = CGAffineTransform(translationX: 0, y: 16)
@@ -615,5 +694,13 @@ final class PaddedLabel: UILabel {
     override var intrinsicContentSize: CGSize {
         let s = super.intrinsicContentSize
         return CGSize(width: s.width + 20, height: s.height + 8)
+    }
+}
+
+/// Pile de vues qui laisse passer les touchers dans ses zones vides (barre du haut du lecteur).
+final class PassThroughStack: UIStackView {
+    override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+        let v = super.hitTest(point, with: event)
+        return v === self || (v != nil && v!.subviews.isEmpty && !(v is UIControl) && !(v is UILabel) && v!.superview === self) ? nil : v
     }
 }

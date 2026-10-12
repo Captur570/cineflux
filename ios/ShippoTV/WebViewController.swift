@@ -42,8 +42,18 @@ final class WebViewController: UIViewController, WKScriptMessageHandlerWithReply
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        // balayage depuis le bord gauche : page précédente, comme partout sur iPad
+        let edge = UIScreenEdgePanGestureRecognizer(target: self, action: #selector(edgeBack(_:)))
+        edge.edges = .left
+        webView.addGestureRecognizer(edge)
         if let url = URL(string: "shippo://app/index.html") {
             webView.load(URLRequest(url: url))
+        }
+    }
+
+    @objc private func edgeBack(_ g: UIScreenEdgePanGestureRecognizer) {
+        if g.state == .ended && g.translation(in: view).x > 70 {
+            webView.evaluateJavaScript("window.IOS_BACK && window.IOS_BACK()", completionHandler: nil)
         }
     }
 
@@ -73,6 +83,10 @@ final class WebViewController: UIViewController, WKScriptMessageHandlerWithReply
             replyHandler(true, nil)
         case "stop":
             player?.closeFromApp()
+            replyHandler(true, nil)
+        case "haptic":
+            let style: UIImpactFeedbackGenerator.FeedbackStyle = (body["style"] as? String) == "medium" ? .medium : .light
+            UIImpactFeedbackGenerator(style: style).impactOccurred()
             replyHandler(true, nil)
         case "openURL":
             if let s = body["url"] as? String, let url = URL(string: s) {
