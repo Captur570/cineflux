@@ -11,7 +11,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 IOS = os.path.dirname(HERE)
 OUT = os.path.join(HERE, "out")
 APP = os.path.join(IOS, "build", "sim", "Build", "Products", "Debug-iphonesimulator", "ShippoTV.app")
-BUNDLE = "app.shippotv.ipad"
+BUNDLE = "app.shippotv.ipad.vlc4"
 
 
 def sh(*a, env=None, check=True):
