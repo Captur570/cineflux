@@ -8,12 +8,7 @@ final class PlayerViewController: UIViewController {
     var onEvent: (([String: Any]) -> Void)?
     var onDismiss: (() -> Void)?
 
-    private let mp: VLCMediaPlayer = {
-        // essai (fabrication GitHub) : position des sous-titres réglée pour tout le lecteur
-        let env = ProcessInfo.processInfo.environment
-        if let m = env["SHIPPO_SUBLIB"], !m.isEmpty { return VLCMediaPlayer(options: [m]) }
-        return VLCMediaPlayer()
-    }()
+    private let mp = VLCMediaPlayer()
     private let videoView = UIView()
     private var streams: [[String: Any]] = []
     private var idx = 0
