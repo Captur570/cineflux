@@ -64,10 +64,12 @@ def main():
     with open(os.path.join(OUT, "journal.txt"), "w") as f:
         f.write(logs[-200000:])
     # sous-titres d'un film « cinémascope » : où VLC les place-t-il selon le réglage ?
-    for name, lib, media in [("subs-defaut", "", ""), ("subs-lib-200", "-200", ""), ("subs-lib-5000", "-5000", ""), ("subs-media-200", "", "-200")]:
+    for name, lib, media in [("subs-defaut", "", ""),
+                             ("subs-canvas", "", ":video-filter=canvas|:canvas-aspect=59:41|:canvas-padd"),
+                             ("subs-canvas-lib", "--video-filter=canvas", ":canvas-aspect=59:41|:canvas-padd")]:
         sh("xcrun", "simctl", "terminate", udid, BUNDLE, check=False)
         test = {"server": "127.0.0.1:8799", "user": "demo", "pass": "demo", "country": "FR", "route": "subs"}
-        env = dict(os.environ, SIMCTL_CHILD_SHIPPO_TEST=json.dumps(test), SIMCTL_CHILD_SHIPPO_SUBLIB=lib, SIMCTL_CHILD_SHIPPO_SUBMEDIA=media)
+        env = dict(os.environ, SIMCTL_CHILD_SHIPPO_TEST=json.dumps(test), SIMCTL_CHILD_SHIPPO_SUBLIB=lib, SIMCTL_CHILD_SHIPPO_MEDIAOPTS=media)
         sh("xcrun", "simctl", "launch", udid, BUNDLE, env=env, check=False)
         time.sleep(20)
         path = os.path.join(OUT, f"{name}.png")
