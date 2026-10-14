@@ -1,0 +1,20 @@
+name: HelloTV
+options:
+  bundleIdPrefix: com.atvload
+targets:
+  HelloTV:
+    type: application
+    platform: tvOS
+    deploymentTarget: "17.0"
+    sources: [HelloTV]
+    info:
+      path: HelloTV/Info.plist
+      properties:
+        CFBundleDisplayName: HelloTV
+        CFBundleShortVersionString: "1.0"
+        UILaunchScreen: {}
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.atvload.hellotv
+        SWIFT_VERSION: "5.0"
+        TARGETED_DEVICE_FAMILY: "3"
