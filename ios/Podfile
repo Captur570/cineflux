@@ -1,10 +1,10 @@
-# Lecteur vidéo VLC (lit tous les formats : MKV, TS, HLS, AC3, DTS, 4K…)
+# Lecteur vidéo VLC 4 (lit tous les formats : MKV, TS, HLS, AC3, DTS, 4K…)
 platform :ios, '15.0'
 use_frameworks!
 inhibit_all_warnings!
 
 target 'ShippoTV' do
-  pod 'MobileVLCKit', '~> 3.6.0'
+  pod 'VLCKit', '4.0.0a25'          # VLC 4 : sous-titres dans les bandes noires
 end
 
 post_install do |installer|
