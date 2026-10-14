@@ -126,6 +126,108 @@ ANISETTE_SERVERS = [
 _ANISETTE = {"url": None}
 
 
+# Anisette LOCAL : comme atvloadly sous Linux, on fait tourner sur le PC les deux
+# bibliothèques d'identification d'Apple, extraites de l'app Apple Music pour Android
+# (fichier public d'Apple). Le PC a alors sa propre identité, au lieu de passer par
+# des serveurs publics partagés qu'Apple finit par bloquer (erreur 503).
+APPLE_MUSIC_APK = "https://apps.mzstatic.com/content/android-apple-music-apk/applemusic.apk"
+ADI_LIBS = ("libstoreservicescore.so", "libCoreADI.so")
+
+
+def plume_data_dir() -> Path:
+    base = os.environ.get("APPDATA") or str(Path.home() / ".config")
+    return Path(base) / "PlumeImpactor"
+
+
+def local_lib_dir() -> Path:
+    return plume_data_dir() / "lib" / "x86_64"
+
+
+def local_anisette_ready():
+    return all((local_lib_dir() / n).is_file() for n in ADI_LIBS)
+
+
+class _HttpRangeFile:
+    """Fichier distant lisible par morceaux (HTTP Range) : zipfile n'y lit que ce qu'il faut."""
+
+    def __init__(self, url):
+        self.url, self.pos = url, 0
+        req = urllib.request.Request(url, method="HEAD")
+        with urllib.request.urlopen(req, timeout=30) as r:
+            self.size = int(r.headers["Content-Length"])
+            if r.headers.get("Accept-Ranges", "").lower() != "bytes":
+                raise OSError("pas de lecture partielle")
+
+    def seekable(self): return True
+    def tell(self): return self.pos
+
+    def seek(self, off, whence=0):
+        self.pos = off if whence == 0 else (self.pos + off if whence == 1 else self.size + off)
+        return self.pos
+
+    def read(self, n=-1):
+        if n is None or n < 0:
+            n = self.size - self.pos
+        if n == 0 or self.pos >= self.size:
+            return b""
+        end = min(self.pos + n, self.size) - 1
+        req = urllib.request.Request(self.url, headers={"Range": f"bytes={self.pos}-{end}"})
+        with urllib.request.urlopen(req, timeout=60) as r:
+            data = r.read()
+        self.pos += len(data)
+        return data
+
+
+def install_local_anisette():
+    if local_anisette_ready():
+        ok("Identification locale déjà en place (bibliothèques Apple).")
+        return True
+    info("Récupération des bibliothèques d'identification d'Apple (depuis Apple Music pour Android)…")
+    dest = local_lib_dir()
+    dest.mkdir(parents=True, exist_ok=True)
+    tmp_apk = None
+    try:
+        try:
+            src = _HttpRangeFile(APPLE_MUSIC_APK)   # ne télécharge que les ~5 Mo utiles
+        except Exception:
+            info("Téléchargement complet de l'APK (plus long)…")
+            tmp_apk = Path(tempfile.gettempdir()) / "atvload-applemusic.apk"
+            urllib.request.urlretrieve(APPLE_MUSIC_APK, tmp_apk)
+            src = open(tmp_apk, "rb")
+        with zipfile.ZipFile(src) as z:
+            for n in ADI_LIBS:
+                (dest / n).write_bytes(z.read(f"lib/x86_64/{n}"))
+        ok(f"Identification locale installée : {dest}")
+        return True
+    except Exception as e:
+        warn(f"Impossible d'installer l'identification locale ({e}). Repli sur les serveurs publics.")
+        for n in ADI_LIBS:
+            (dest / n).unlink(missing_ok=True)
+        return False
+    finally:
+        if tmp_apk:
+            tmp_apk.unlink(missing_ok=True)
+
+
+def disable_local_anisette():
+    """Si le chargeur local plante sur ce PC, on le met de côté et on repasse par un serveur."""
+    d = local_lib_dir()
+    if d.exists():
+        backup = d.with_name("x86_64.desactive")
+        shutil.rmtree(backup, ignore_errors=True)
+        d.rename(backup)
+
+
+def is_local_loader_crash(out):
+    o = out.lower()
+    return ("store_services_core" in o or "android_loader" in o or "android-loader" in o) and "panicked" in o
+
+
+def is_risk_block(out):
+    o = out.lower()
+    return "503" in o and ("risk control" in o or "srp" in o)
+
+
 def plume_env():
     env = dict(os.environ, RUST_LOG=os.environ.get("RUST_LOG", "info"), RUST_BACKTRACE="0")
     if _ANISETTE["url"]:
@@ -144,6 +246,9 @@ def anisette_ok(url, timeout=6):
 
 def choose_anisette(state, exclude=()):
     """Choisit un serveur anisette qui répond, en commençant par celui qui a déjà marché."""
+    if local_anisette_ready():
+        _ANISETTE["url"] = None
+        return "local"
     order = ([state["anisette"]] if state.get("anisette") else []) + ANISETTE_SERVERS
     seen = set()
     for url in order:
@@ -157,14 +262,6 @@ def choose_anisette(state, exclude=()):
             return url
     raise Fail("Aucun serveur d'identification (anisette) ne répond. Vérifie ta connexion Internet, "
                "ou réessaie plus tard.")
-
-
-def reset_anisette_state():
-    """Oublie l'identité de machine obtenue auprès d'un serveur précédent."""
-    base = os.environ.get("APPDATA") or str(Path.home() / ".config")
-    f = Path(base) / "PlumeImpactor" / "state.plist"
-    if f.exists():
-        f.unlink()
 
 
 def is_anisette_error(out):
@@ -353,7 +450,9 @@ def profile_expiry(path):
 
 def explain_failure(out):
     o = out.lower()
-    if is_anisette_error(out):
+    if is_risk_block(out):
+        warn("Apple bloque temporairement (503). Attends quelques heures avant de réessayer.")
+    elif is_anisette_error(out):
         warn("Le serveur d'identification (anisette) n'a pas répondu correctement. Réessaie dans quelques "
              "minutes ; si ça persiste, relance  atvload login")
     elif "certificate" in o and ("limit" in o or "revok" in o or "approval" in o):
@@ -408,6 +507,7 @@ def cmd_setup(args, state):
     if r.returncode != 0 or "sign-rsd" not in r.stdout:
         raise Fail("plumesign ne répond pas comme prévu (version sans prise en charge réseau ?).")
     ok("plumesign fonctionne.")
+    install_local_anisette()
     print()
     info("Étapes suivantes :  atvload pair   puis   atvload login   puis   atvload install MonApp.ipa")
 
@@ -456,6 +556,8 @@ def cmd_login(args, state):
     password = getpass.getpass("Mot de passe (non affiché) : ")
     info("Connexion à Apple… Si un code de validation s'affiche sur ton iPhone/iPad/Mac, tape-le ici.")
     info("(Pas d'appareil Apple pour recevoir le code ? tape  sms  puis Entrée.)")
+    if not local_anisette_ready():
+        install_local_anisette()
     tried = set()
     while True:
         url = choose_anisette(state, exclude=tried)
@@ -463,14 +565,22 @@ def cmd_login(args, state):
                                     first_lines=[password], secrets=[password])
         if code == 0:
             break
-        if is_anisette_error(out) and len(tried) < 5:
+        if url == "local" and is_local_loader_crash(out):
+            warn("L'identification locale ne fonctionne pas sur ce PC, je passe par un serveur public.")
+            disable_local_anisette()
+            continue
+        if is_risk_block(out):
+            raise Fail("Apple bloque temporairement les connexions (erreur 503, « risk control »), sans doute à "
+                       "cause des essais répétés. N'insiste pas : attends quelques heures (idéalement jusqu'à "
+                       "demain), puis relance  atvload login  une seule fois.")
+        if url != "local" and is_anisette_error(out) and len(tried) < 5:
             warn(f"Le serveur d'identification {url} ne répond pas correctement, j'en essaie un autre.")
             tried.add(url)
             state.pop("anisette", None)
-            reset_anisette_state()
             continue
-        raise Fail("Connexion refusée (identifiants, code 2FA, ou Apple qui bloque temporairement).")
-    state["anisette"] = url
+        raise Fail("Connexion refusée (identifiants ou code de validation incorrects).")
+    if url != "local":
+        state["anisette"] = url
     state["account"] = email
     save_state(state)
     ok(f"Connecté avec {email}. La session est mémorisée pour les renouvellements.")
@@ -491,7 +601,13 @@ def sign_install(state, ipa, udid, dev, refresh=False, revoke=None):
         cmd += ["--revoke-certificate", revoke]
     choose_anisette(state)
     code, out = run_tee(cmd)
-    if code != 0 and is_anisette_error(out):
+    if code != 0 and _ANISETTE["url"] is None and is_local_loader_crash(out):
+        warn("L'identification locale ne fonctionne pas sur ce PC, je passe par un serveur public.")
+        disable_local_anisette()
+        state["anisette"] = choose_anisette(state)
+        save_state(state)
+        code, out = run_tee(cmd)
+    if code != 0 and _ANISETTE["url"] and is_anisette_error(out):
         warn("Serveur d'identification en panne, j'en essaie un autre…")
         state["anisette"] = choose_anisette(state, exclude={_ANISETTE["url"]})
         save_state(state)
