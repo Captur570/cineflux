@@ -899,3 +899,18 @@ body{background:transparent}
 .dhero::after{background:linear-gradient(90deg,rgba(6,4,8,.92) 0%,rgba(6,4,8,.55) 42%,rgba(6,4,8,0) 74%)}
 .live-hero::after{background:linear-gradient(90deg,rgba(6,4,8,.92) 0%,rgba(6,4,8,.5) 40%,rgba(6,4,8,0) 72%)}
 #player .pl-glass{background:linear-gradient(135deg,rgba(40,26,34,.58),rgba(16,10,14,.46) 60%,rgba(40,26,34,.5))}
+
+/* configuration par téléphone (QR code) */
+.modal-card.phone-card{width:min(980px,100%)}
+.phone-modal{display:grid;grid-template-columns:auto 1fr;gap:40px;align-items:center;padding:40px 44px}
+.qr-box{background:#fff;border-radius:22px;padding:14px;box-shadow:0 20px 60px rgba(0,0,0,.5),0 0 0 6px rgba(214,55,95,.35)}
+.qr-box .qr{display:block;width:340px;height:340px}
+.phone-steps h2{font-family:var(--display);font-size:26px;display:flex;align-items:center;gap:12px;margin:0 0 16px}
+.phone-steps h2 .ic{color:var(--accent-2)}
+.phone-steps ol{margin:0 0 20px;padding-left:22px;display:grid;gap:10px;font-size:17px;line-height:1.45}
+.phone-state{display:flex;align-items:center;gap:12px;padding:14px 18px;border-radius:16px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);font-weight:700;margin-bottom:10px}
+.phone-state.ok{background:rgba(70,200,120,.16);border-color:rgba(70,200,120,.45)}
+.phone-state.ok .ic{color:#5fdc8f;width:22px;height:22px}
+.phone-state.bad{background:rgba(214,55,95,.16);border-color:rgba(214,55,95,.45)}
+.phone-set .btn{margin-top:6px}
+@media (max-width:800px){.phone-modal{grid-template-columns:1fr;justify-items:center;padding:28px 22px}.qr-box .qr{width:260px;height:260px}}

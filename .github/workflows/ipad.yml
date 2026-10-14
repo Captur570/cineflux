@@ -41,6 +41,7 @@ jobs:
             -destination 'generic/platform=iOS' -derivedDataPath build/dev \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build > build-dev.log 2>&1 || true
           grep -E "error:|BUILD (SUCCEEDED|FAILED)" build-dev.log | head -60 || true
+          grep -q "BUILD SUCCEEDED" build-dev.log
           test -d build/dev/Build/Products/Release-iphoneos/ShippoTV.app
           rm -rf Payload && mkdir Payload
           cp -R build/dev/Build/Products/Release-iphoneos/ShippoTV.app Payload/

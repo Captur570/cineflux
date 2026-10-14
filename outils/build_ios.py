@@ -18,7 +18,7 @@ import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, "ios", "ShippoTV", "web")
-ENGINE = ["store.js", "tvguide.js", "verify.js", "catalog.js", "sync.js", "app.js"]
+ENGINE = ["qrcode.js", "store.js", "tvguide.js", "verify.js", "catalog.js", "sync.js", "app.js"]
 
 
 def version():

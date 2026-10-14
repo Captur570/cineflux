@@ -1180,6 +1180,7 @@
     const d = pdata(prof);
     const pid = prof in c.pdata ? prof : c.profiles[0].id;
     return {
+      phone_setup: !!(syncSettings()[0] && syncSettings()[1] && G.crypto && G.crypto.subtle),
       configured: !!(c.server && c.username), server: c.server, username: c.username, has_password: !!c.password,
       has_tmdb: !!tmdbKey(), own_tmdb: !!(c.tmdb_key || '').trim(), builtin_tmdb: !!BUILTIN_TMDB, version: VERSION,
       player: '', player_kind: null, player_path: '', fullscreen: true, live_format: c.live_format || 'ts', player_mode: 'web',
@@ -1399,6 +1400,59 @@
     return { changed, verify: Object.fromEntries(((A.movie_idx[key] || {}).v || []).map(v => [String(v.id), vm[String(v.id)] ?? null])) };
   }
 
+  /* Configuration depuis un téléphone : la télé affiche un QR code vers une petite page web,
+     le téléphone y saisit les identifiants, les chiffre avec le code du QR et les dépose ;
+     la télé les récupère, se connecte et renvoie le résultat au téléphone. */
+  const QR_ALPHA = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  function phonePage() {
+    const repo = (DEF.update_repo || 'Captur570/cineflux').split('/');
+    return DEF.phone_page || `https://${repo[0].toLowerCase()}.github.io/${repo[1]}/config/`;
+  }
+  async function rPhone(method, body) {
+    const act = method === 'POST' ? body.action : 'poll';
+    const [url, key] = syncSettings();
+    if (!url || !key || !A.sync || !A.sync.configured) return { error: 'Configuration par téléphone indisponible (synchronisation non configurée)' };
+    if (act === 'start') {
+      const r = new Uint8Array(16);
+      G.crypto.getRandomValues(r);
+      const code = Array.from(r, b => QR_ALPHA[b & 31]).join('');
+      A.phone = { code, exp: Date.now() + 10 * 60 * 1000 };
+      const frag = new URLSearchParams({ c: code, s: url, k: key, n: G.SHIPPO_PLATFORM === 'ios' ? 'iPad' : 'Télé' });
+      return { url: phonePage() + '#' + frag.toString(), exp: A.phone.exp };
+    }
+    if (act === 'cancel') { A.phone = null; return { state: 'none' }; }
+    const ph = A.phone;
+    if (!ph) return { state: 'none' };
+    if (Date.now() > ph.exp) { A.phone = null; return { state: 'expired' }; }
+    let data;
+    try { data = await A.sync.claimCode(ph.code); } catch (e) { return { state: 'wait', warn: e.message }; }
+    if (!data) return { state: 'wait' };
+    const x = data.xtream || {};
+    const reply = obj => A.sync.dropCode(ph.code + '/r', obj).catch(() => {});
+    if (!x.server || !x.username) { await reply({ ok: false, msg: 'Adresse du serveur ou identifiant manquant.' }); return { state: 'wait' }; }
+    const c = CONFIG.data;
+    const prev = { server: c.server, username: c.username, password: c.password };
+    c.server = String(x.server).trim(); c.username = String(x.username).trim(); c.password = String(x.password || '');
+    if (data.tmdb) c.tmdb_key = String(data.tmdb).trim();
+    if (c.server.includes('username=')) {
+      const [base, user, pw] = parseServerInput(c.server);
+      c.server = base; c.username = user || c.username; c.password = c.password || pw || '';
+    }
+    CONFIG.save();
+    A.catalog = null; A.account = {}; A.xt = null;
+    try {
+      await connect();
+    } catch (e) {
+      Object.assign(c, prev); CONFIG.save();
+      A.catalog = null; A.account = {}; A.xt = null;
+      await reply({ ok: false, msg: e.message || 'Connexion refusée par le serveur.' });
+      return { state: 'wait', tried: true, error: e.message };
+    }
+    await reply({ ok: true, msg: 'ShippoTV est configuré sur votre ' + (G.SHIPPO_PLATFORM === 'ios' ? 'iPad' : 'télé') + '.' });
+    A.phone = null;
+    return { state: 'done' };
+  }
+
   async function rSync(method, body) {
     let s = A.sync;
     const act = method === 'POST' ? body.action : null;
@@ -1471,6 +1525,7 @@
     '/api/verify': rVerify,
     '/api/events': (m, b, g) => { const since = toInt(g('since')); return A.events.filter(e => e.id > since); },
     '/api/sync': rSync,
+    '/api/phone_setup': rPhone,
     '/api/downloads': () => ({ items: [], folder: '', free: 0, held: false }),
     '/api/update': async (m, b) => {
       if (m === 'POST' && b.action === 'check') await checkUpdate(true).catch(() => {});

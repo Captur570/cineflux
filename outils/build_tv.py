@@ -18,7 +18,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, "build", "tv-app")
 PKG = "ShippoTV01"                       # identifiant de paquet Tizen (10 caractères)
 APP_ID = PKG + ".ShippoTV"
-ENGINE = ["store.js", "tvguide.js", "verify.js", "catalog.js", "sync.js", "app.js"]
+ENGINE = ["qrcode.js", "store.js", "tvguide.js", "verify.js", "catalog.js", "sync.js", "app.js"]
 
 
 def say(msg, color=""):

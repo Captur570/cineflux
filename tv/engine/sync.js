@@ -317,6 +317,20 @@
       return this.status();
     }
 
+    // configuration depuis un téléphone (QR code) : dépôt chiffré sous un long code à usage unique,
+    // sans groupe de synchronisation. Le serveur ne voit que l'empreinte du code et un contenu chiffré.
+    async claimCode(code) {
+      if (!this.configured) throw new SyncError('Synchronisation non configurée');
+      const blob = await this._rpc('cf_pair_claim', { p_h: await codeHash(code) });
+      if (!blob) return null;
+      return openPair(code, blob);
+    }
+
+    async dropCode(code, obj) {
+      if (!this.configured) throw new SyncError('Synchronisation non configurée');
+      await this._rpc('cf_pair_create', { p_h: await codeHash(code), p_payload: await sealPair(code, obj) });
+    }
+
     renameDevice(name) {
       this.store.name = String(name || '').trim().slice(0, 40) || this.store.name;
       this.save();

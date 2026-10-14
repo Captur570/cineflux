@@ -1,0 +1,15 @@
+__pycache__/
+build/
+Output/
+tv.json
+distribution.json
+ios/ShippoTV/web/
+ios/*.xcodeproj/
+ios/*.xcworkspace/
+ios/Pods/
+ios/Podfile.lock
+ios/build/
+ios/Payload/
+ios/*.ipa
+ios/ci/out/
+ios/build-*.log

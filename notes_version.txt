@@ -1,3 +1,7 @@
+ShippoTV 5.3.1
+- Télé et iPad : configuration avec votre téléphone. Un QR code s'affiche, vous collez ou tapez vos identifiants sur le téléphone, et la télé se connecte toute seule (identifiants chiffrés, fini la saisie à la télécommande)
+- iPad : lecteur contrôlable au toucher (1 tap : commandes, 2 taps : ±10 s, 3 taps : ±30 s), interface plus fluide et animée
+
 ShippoTV 5.3.0
 - Nouveau design : bordeaux, verre liquide (PC) et version allégée et fluide sur la télé
 - Accueil : grande mise en avant, tuiles « En direct » et « Ce soir », cartes animées, fond qui prend la couleur de ce que vous survolez

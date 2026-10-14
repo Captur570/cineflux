@@ -14,10 +14,15 @@ PAGES.settings = function (v, token, params) {
     <h1>${first ? 'Bienvenue sur ShippoTV' : 'Réglages'}</h1>
     <p class="lead">${first ? 'Entrez les identifiants Xtream fournis par votre abonnement. Ils restent enregistrés uniquement sur cet appareil.' : 'Vos identifiants restent enregistrés uniquement sur cet appareil.'}</p>
     ${params.error ? `<div class="err">${esc(params.error)}</div>` : ''}
+    ${c.phone_setup && first ? `<section class="set phone-set"><h2>${ico('phone')}Le plus simple : avec votre téléphone</h2>
+      <p class="para">Scannez un QR code avec votre téléphone, puis collez ou tapez vos identifiants dessus : fini la saisie à la télécommande.</p>
+      <button class="btn btn-accent" type="button" data-a="phone">${ico('phone')}Configurer avec mon téléphone</button></section>` : ''}
     ${first ? '<section class="set quick-set" hidden></section>' : ''}
 
     <section class="set"><h2>${ico('user')}Abonnement</h2>
       ${exp ? `<div class="ok-msg">Abonnement actif jusqu'au ${exp}${acc.max ? ` · ${acc.max} connexion${acc.max > 1 ? 's' : ''} simultanée${acc.max > 1 ? 's' : ''}` : ''}</div>` : ''}
+      ${c.phone_setup && !first ? `<div class="row-line"><span class="dim">Identifiants longs à saisir ? Envoyez-les depuis votre téléphone.</span>
+        <button class="btn btn-ghost" type="button" data-a="phone">${ico('phone')}Avec mon téléphone</button></div>` : ''}
       <div class="field"><label>Adresse du serveur</label><input type="text" name="server" placeholder="http://exemple.com:8080" value="${esc(c.server)}">
         <div class="hint">Vous pouvez aussi coller votre lien M3U complet (…/get.php?username=…), les identifiants seront remplis tout seuls.</div></div>
       <div class="two">
@@ -91,6 +96,7 @@ PAGES.settings = function (v, token, params) {
       toast('Mise à jour du catalogue lancée en arrière-plan', 'info', 2500);
     };
   }
+  page.querySelectorAll('[data-a="phone"]').forEach(b => { b.onclick = () => phoneSetup(); });
   const own = page.querySelector('#own-tmdb');
   if (own) own.onclick = () => { own.closest('.player-state').remove(); page.querySelector('#tmdb-field').hidden = false; form.tmdb_key.focus(); };
   const bt = page.querySelector('#builtin-tmdb');
@@ -303,6 +309,66 @@ async function quickSetup(box) {
   };
   box.querySelector('[data-q="join"]').onclick = submit;
   ci.addEventListener('keydown', e => { if (e.key === 'Enter' && !ci.readOnly) { e.preventDefault(); submit(); } });
+}
+
+/* Configuration depuis un téléphone : QR code vers une page web où l'on saisit ses identifiants */
+function qrSvg(text) {
+  const q = qrcode(0, 'L');
+  q.addData(text);
+  q.make();
+  const n = q.getModuleCount(), m = 2;
+  let d = '';
+  for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (q.isDark(r, c)) d += `M${c + m} ${r + m}h1v1h-1z`;
+  return `<svg class="qr" viewBox="0 0 ${n + 2 * m} ${n + 2 * m}" shape-rendering="crispEdges"><rect width="100%" height="100%" fill="#fff"/><path d="${d}" fill="#0b0609"/></svg>`;
+}
+
+async function phoneSetup() {
+  let st;
+  try { st = await api('/api/phone_setup', { action: 'start' }); } catch (e) { st = { error: e.message }; }
+  if (st.error) return toast(st.error, 'error', 6000);
+  const token = S.modalToken = Symbol();
+  const body = openModal(`<div class="phone-modal">
+      <div class="qr-box">${qrSvg(st.url)}</div>
+      <div class="phone-steps">
+        <h2>${ico('phone')}Configurer avec mon téléphone</h2>
+        <ol>
+          <li>Ouvrez l'<b>appareil photo</b> de votre téléphone et visez ce QR code.</li>
+          <li>Touchez le lien qui apparaît : une page ShippoTV s'ouvre.</li>
+          <li>Collez ou tapez votre <b>serveur</b>, votre <b>identifiant</b> et votre <b>mot de passe</b>, puis « Envoyer ».</li>
+        </ol>
+        <div class="phone-state"><span class="spin"></span><span>En attente du téléphone…</span></div>
+        <p class="dim small-note">Les identifiants voyagent chiffrés et ne sont lisibles que par cet appareil. Code valable 10 minutes.</p>
+        <div class="row-btns"><button class="btn btn-ghost" type="button" data-close autofocus>Annuler</button></div>
+      </div></div>`, 'phone-card');
+  const state = body.querySelector('.phone-state');
+  const show = (html, cls = '') => { state.className = 'phone-state ' + cls; state.innerHTML = html; };
+  const stop = () => { if (S.modalToken !== token) return true; return false; };
+  const poll = async () => {
+    if (stop()) { api('/api/phone_setup', { action: 'cancel' }).catch(() => {}); return; }
+    let r;
+    try { r = await api('/api/phone_setup'); } catch (e) { r = { state: 'wait' }; }
+    if (stop()) { api('/api/phone_setup', { action: 'cancel' }).catch(() => {}); return; }
+    if (r.state === 'done') {
+      show(`${ico('check')}<span>Identifiants reçus, connexion réussie !</span>`, 'ok');
+      S.cfg = await api('/api/config');
+      S.favs = new Set(S.cfg.favs);
+      setTimeout(() => {
+        closeModal();
+        toast('ShippoTV est configuré !', 'info', 3000);
+        S.stack = [];
+        loadCatalog(false);
+      }, 1200);
+      return;
+    }
+    if (r.state === 'expired' || r.state === 'none') {
+      show(`<span>Le code a expiré.</span> <button class="btn btn-ghost" type="button" data-again>Nouveau code</button>`, 'bad');
+      body.querySelector('[data-again]').onclick = () => { closeModal(); phoneSetup(); };
+      return;
+    }
+    if (r.tried) show(`<span class="spin"></span><span>Connexion refusée${r.error ? ` : ${esc(String(r.error).replace(/[ .]+$/, '').replace(/^./, ch => ch.toLowerCase()))}` : ''}. Corrigez les identifiants sur le téléphone et renvoyez.</span>`, 'bad');
+    setTimeout(poll, 2500);
+  };
+  setTimeout(poll, 2500);
 }
 
 /* ------------------------------------------------------------ à propos / mises à jour */

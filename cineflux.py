@@ -78,10 +78,10 @@ def _read_version():
     for d in (resource_dir(), app_dir()):
         try:
             with open(os.path.join(d, "version.txt"), encoding="utf-8") as f:
-                return f.read().strip() or "5.3.0"
+                return f.read().strip() or "5.3.1"
         except OSError:
             pass
-    return "5.3.0"
+    return "5.3.1"
 
 
 def _read_defaults():
