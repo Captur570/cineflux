@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: [".github/workflows/atv-tools.yml", "tools/hellotv/**"]
+    paths: [".github/workflows/atv-tools.yml", "tools/hellotv/**", "tools/atvload/**"]
 permissions:
   contents: write
 concurrency:
@@ -21,18 +21,29 @@ jobs:
   plumesign-windows:
     runs-on: windows-latest
     timeout-minutes: 90
+    defaults:
+      run:
+        working-directory: plume
     steps:
+      - uses: actions/checkout@v4
+        with:
+          path: atv
       - uses: actions/checkout@v4
         with:
           repository: ${{ env.PLUME_REPO }}
           ref: ${{ env.PLUME_REF }}
           submodules: recursive
+          path: plume
+      - name: Correctifs ATVLoad (serveur anisette configurable, pas de plantage)
+        run: python ../atv/tools/atvload/patch_plume.py .
       - name: Rust
         run: |
           rustup toolchain install stable --profile minimal
           rustup default stable
           rustc --version
       - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: plume
       - name: Compilation de plumesign
         env:
           CARGO_PROFILE_RELEASE_DEBUG: "false"
@@ -48,7 +59,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: plumesign-windows
-          path: dist/plumesign-windows-x86_64.exe
+          path: plume/dist/plumesign-windows-x86_64.exe
 
   hellotv:
     runs-on: macos-15
@@ -77,9 +88,23 @@ jobs:
           name: hellotv
           path: tools/hellotv/HelloTV.ipa
 
+  atvload-zip:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Archive de l'outil
+        run: |
+          mkdir -p dist/ATVLoad
+          cp tools/atvload/atvload.py tools/atvload/atvload.bat tools/atvload/LISEZMOI.md dist/ATVLoad/
+          cd dist && zip -qr ATVLoad.zip ATVLoad && ls -la ATVLoad.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: atvload
+          path: dist/ATVLoad.zip
+
   publication:
     runs-on: ubuntu-latest
-    needs: [plumesign-windows, hellotv]
+    needs: [plumesign-windows, hellotv, atvload-zip]
     if: always() && (needs.plumesign-windows.result == 'success' || needs.hellotv.result == 'success')
     steps:
       - uses: actions/download-artifact@v4
@@ -96,5 +121,6 @@ jobs:
           body: |
             Outils pour installer des apps tvOS sur Apple TV depuis Windows avec un Apple ID gratuit.
             - plumesign-windows-x86_64.exe : compilé depuis ${{ env.PLUME_REPO }}@${{ env.PLUME_REF }} (licence MIT).
+            - ATVLoad.zip : l'outil lui-même (voir LISEZMOI.md à l'intérieur).
             - HelloTV.ipa : app tvOS de test (non signée), à installer avec `atvload install HelloTV.ipa`.
             Fabrication n°${{ github.run_number }}.
