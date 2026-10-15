@@ -601,7 +601,13 @@ def cmd_login(args, state):
             tried.add(url)
             state.pop("anisette", None)
             continue
-        raise Fail("Connexion refusée (identifiants ou code de validation incorrects).")
+        if "-22406" in out:
+            raise Fail("Apple indique un mot de passe incorrect (-22406). Vérifie-le, ou essaie avec un "
+                       "Apple ID secondaire sans majuscules ni caractères spéciaux.")
+        if "SRP protocol selected" in out:
+            raise Fail("Apple a accepté la 1re étape mais refusé la 2e. Envoie-moi cette sortie.")
+        raise Fail("Connexion refusée par Apple (code ci-dessus). Envoie-moi cette sortie ; "
+                   "n'insiste pas plus de 2-3 fois par heure.")
     if url != "local":
         state["anisette"] = url
     state["account"] = email

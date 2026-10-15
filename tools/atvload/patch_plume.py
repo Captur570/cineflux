@@ -102,3 +102,63 @@ for f in (core / "account" / "login.rs", core / "account" / "token.rs"):
         f.write_text(t.replace("akd/1.0 CFNetwork/978.0.7 Darwin/18.7.0", "akd/1.0 CFNetwork/808.1.4"),
                      encoding="utf-8")
         print(f"corrigé : {f.name} (User-Agent)")
+
+
+# ---- 4. Requête de connexion alignée sur isideload (erreur Apple -22421)
+#  - « cpd » minimal : uniquement les champs envoyés par isideload ;
+#  - en-têtes GrandSlam d'isideload (Accept plist, X-Xcode-Version, X-Apple-App-Info,
+#    Connection: close dès la 1re requête) ;
+#  - prise en charge du protocole « s2k_fo » choisi par Apple (mot de passe = hex du SHA-256),
+#    que plumesign ignorait (il envoyait toujours la variante « s2k »).
+
+patch(core / "anisette_data.rs",
+      "    pub fn to_plist(&self, cpd: bool, client_info: bool, app_info: bool) -> plist::Dictionary {",
+      """    pub fn to_minimal_cpd(&self) -> plist::Dictionary {
+        let mut plist = plist::Dictionary::new();
+        for (k, v) in [("bootstrap", "true"), ("icscrec", "true"), ("loc", "en_US"),
+                       ("pbe", "false"), ("prkgen", "true"), ("svct", "iCloud")] {
+            plist.insert(k.to_owned(), plist::Value::String(v.to_owned()));
+        }
+        for wanted in ["X-Mme-Device-Id", "X-Apple-I-MD", "X-Apple-I-MD-M"] {
+            if let Some((_, v)) = self.base_headers.iter().find(|(k, _)| k.eq_ignore_ascii_case(wanted)) {
+                plist.insert(wanted.to_owned(), plist::Value::String(v.to_owned()));
+            }
+        }
+        plist
+    }
+
+    pub fn to_plist(&self, cpd: bool, client_info: bool, app_info: bool) -> plist::Dictionary {""")
+
+for f in (core / "account" / "login.rs", core / "account" / "token.rs"):
+    t = f.read_text(encoding="utf-8")
+    n = t.count("anisette.to_plist(true, false, false)")
+    if n:
+        t = t.replace("anisette.to_plist(true, false, false)", "anisette.to_minimal_cpd()")
+        t = t.replace('''gsa_headers.insert("Accept", HeaderValue::from_str("*/*").unwrap());''',
+                      '''gsa_headers.insert("Accept", HeaderValue::from_static("text/x-xml-plist"));
+        gsa_headers.insert("X-Xcode-Version", HeaderValue::from_static("27.0 (27A5218g)"));
+        gsa_headers.insert("X-Apple-App-Info", HeaderValue::from_static("com.apple.gs.xcode.auth"));
+        gsa_headers.insert("Connection", HeaderValue::from_static("close"));''')
+        f.write_text(t, encoding="utf-8")
+        print(f"corrigé : {f.name} (cpd minimal x{n}, en-têtes)")
+    elif "to_minimal_cpd" in t:
+        print(f"déjà appliqué : {f.name}")
+
+patch(core / "account" / "login.rs",
+      """        let hashed_password = Sha256::digest(password.as_bytes());
+
+        let mut password_buf = [0u8; 32];
+        pbkdf2::pbkdf2::<hmac::Hmac<Sha256>>(
+            &hashed_password,""",
+      """        let selected_protocol = res.get("sp").and_then(|v| v.as_string()).unwrap_or("s2k").to_string();
+        log::info!("SRP protocol selected by Apple: {}", selected_protocol);
+        let hashed_password = Sha256::digest(password.as_bytes());
+        let password_hash: Vec<u8> = if selected_protocol == "s2k_fo" {
+            hex::encode(hashed_password).into_bytes()
+        } else {
+            hashed_password.to_vec()
+        };
+
+        let mut password_buf = [0u8; 32];
+        pbkdf2::pbkdf2::<hmac::Hmac<Sha256>>(
+            &password_hash,""")
