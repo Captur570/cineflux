@@ -41,10 +41,10 @@ La tâche planifiée tourne chaque jour à midi, et au démarrage si le PC étai
 
 ## Identification auprès d'Apple
 
-Sans Mac, Apple exige une « identité de machine » (anisette). `atvload setup` installe sur ton PC les deux bibliothèques officielles d'Apple qui la génèrent. Elles sont extraites de l'app Apple Music pour Android, téléchargée depuis le serveur d'Apple : seuls quelques Mo sont récupérés. Ton PC a ainsi sa propre identité, stable, comme le fait atvloadly sous Linux. Si ça ne fonctionne pas sur ton PC, ATVLoad bascule tout seul sur les serveurs publics de SideStore.
+Sans Mac, Apple exige une « identité de machine » (anisette), fournie par un serveur public. Depuis mi-octobre 2026, Apple refuse l'ancienne identité « Android » (erreur 503). ATVLoad choisit donc automatiquement un serveur qui émule un PC Windows avec iTunes, en commençant par `ani.jkcoxson.com`, le serveur utilisé par iloader.
 
 ## Dépannage
-- **Erreur 503, « risk control »** : Apple bloque temporairement après des essais répétés. N'insiste pas, attends quelques heures (idéalement jusqu'au lendemain), puis fais un seul `atvload login`.
+- **Erreur 503** : Apple refuse l'identité de machine ou bloque après trop d'essais. Mets ATVLoad à jour (`atvload setup`) et ne fais pas plus de 2-3 tentatives par heure.
 
 - **Rien n'est trouvé** : vérifie que l'Apple TV est allumée et sur le même réseau, que le réseau est en profil « Privé », et que le pare-feu autorise Python.
 - **« Session expirée »** : `atvload login`.

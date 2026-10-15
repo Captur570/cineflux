@@ -109,7 +109,11 @@ def plume_cmd(*args):
 
 # Serveurs « anisette » : ils fournissent l'identité de machine qu'Apple exige pour
 # se connecter sans Mac. Liste publique de SideStore ; on prend le premier qui répond.
+# Depuis mi-octobre 2026, Apple rejette (503) l'identité « Android » : on privilégie
+# les serveurs qui émulent un PC Windows avec iTunes (client_info « <PC> <Windows;… »).
 ANISETTE_SERVERS = [
+    "https://ani.jkcoxson.com",
+    "https://ani.stikstore.app",
     "https://ani.sidestore.app",
     "https://ani.sidestore.io",
     "https://ani.sidestore.zip",
@@ -194,9 +198,13 @@ def install_local_anisette():
             tmp_apk = Path(tempfile.gettempdir()) / "atvload-applemusic.apk"
             urllib.request.urlretrieve(APPLE_MUSIC_APK, tmp_apk)
             src = open(tmp_apk, "rb")
-        with zipfile.ZipFile(src) as z:
-            for n in ADI_LIBS:
-                (dest / n).write_bytes(z.read(f"lib/x86_64/{n}"))
+        try:
+            with zipfile.ZipFile(src) as z:
+                for n in ADI_LIBS:
+                    (dest / n).write_bytes(z.read(f"lib/x86_64/{n}"))
+        finally:
+            if hasattr(src, "close"):
+                src.close()
         ok(f"Identification locale installée : {dest}")
         return True
     except Exception as e:
@@ -206,7 +214,10 @@ def install_local_anisette():
         return False
     finally:
         if tmp_apk:
-            tmp_apk.unlink(missing_ok=True)
+            try:
+                tmp_apk.unlink(missing_ok=True)
+            except OSError:
+                pass
 
 
 def disable_local_anisette():
@@ -215,7 +226,11 @@ def disable_local_anisette():
     if d.exists():
         backup = d.with_name("x86_64.desactive")
         shutil.rmtree(backup, ignore_errors=True)
-        d.rename(backup)
+        try:
+            d.rename(backup)
+            info("Identification locale (identité Android, refusée par Apple) mise de côté.")
+        except OSError:
+            shutil.rmtree(d, ignore_errors=True)
 
 
 def is_local_loader_crash(out):
@@ -235,31 +250,39 @@ def plume_env():
     return env
 
 
-def anisette_ok(url, timeout=6):
+def anisette_info(url, timeout=6):
+    """client_info annoncé par le serveur, ou None s'il ne répond pas."""
     try:
         with urllib.request.urlopen(url.rstrip("/") + "/v3/client_info", timeout=timeout) as r:
             data = json.loads(r.read().decode())
-            return "user_agent" in data or "client_info" in data
+            return data.get("client_info") or None
     except Exception:
-        return False
+        return None
 
 
 def choose_anisette(state, exclude=()):
-    """Choisit un serveur anisette qui répond, en commençant par celui qui a déjà marché."""
-    if local_anisette_ready():
-        _ANISETTE["url"] = None
-        return "local"
+    """Choisit un serveur anisette : d'abord ceux qui émulent Windows (seuls acceptés par
+    Apple depuis octobre 2026), en commençant par celui qui a déjà marché."""
+    disable_local_anisette()  # l'identité Android locale est désormais rejetée par Apple
     order = ([state["anisette"]] if state.get("anisette") else []) + ANISETTE_SERVERS
-    seen = set()
+    seen, fallback = set(), None
     for url in order:
         if url in seen or url in exclude:
             continue
         seen.add(url)
-        if anisette_ok(url):
+        ci = anisette_info(url)
+        if not ci:
+            continue
+        if "windows" in ci.lower():
             if url != state.get("anisette"):
                 info(f"Serveur d'identification : {url}")
             _ANISETTE["url"] = url
             return url
+        fallback = fallback or url
+    if fallback:
+        warn(f"Aucun serveur « Windows » disponible, j'utilise {fallback} (Apple risque de refuser).")
+        _ANISETTE["url"] = fallback
+        return fallback
     raise Fail("Aucun serveur d'identification (anisette) ne répond. Vérifie ta connexion Internet, "
                "ou réessaie plus tard.")
 
@@ -507,7 +530,10 @@ def cmd_setup(args, state):
     if r.returncode != 0 or "sign-rsd" not in r.stdout:
         raise Fail("plumesign ne répond pas comme prévu (version sans prise en charge réseau ?).")
     ok("plumesign fonctionne.")
-    install_local_anisette()
+    disable_local_anisette()
+    choose_anisette(state)
+    ok("Serveur d'identification joignable.")
+    save_state(state)
     print()
     info("Étapes suivantes :  atvload pair   puis   atvload login   puis   atvload install MonApp.ipa")
 
@@ -556,8 +582,6 @@ def cmd_login(args, state):
     password = getpass.getpass("Mot de passe (non affiché) : ")
     info("Connexion à Apple… Si un code de validation s'affiche sur ton iPhone/iPad/Mac, tape-le ici.")
     info("(Pas d'appareil Apple pour recevoir le code ? tape  sms  puis Entrée.)")
-    if not local_anisette_ready():
-        install_local_anisette()
     tried = set()
     while True:
         url = choose_anisette(state, exclude=tried)
@@ -570,9 +594,8 @@ def cmd_login(args, state):
             disable_local_anisette()
             continue
         if is_risk_block(out):
-            raise Fail("Apple bloque temporairement les connexions (erreur 503, « risk control »), sans doute à "
-                       "cause des essais répétés. N'insiste pas : attends quelques heures (idéalement jusqu'à "
-                       "demain), puis relance  atvload login  une seule fois.")
+            raise Fail(f"Apple a refusé la connexion (erreur 503) avec le serveur {url}. "
+                       "Envoie-moi cette sortie ; en attendant, n'insiste pas plus de 2-3 fois par heure.")
         if url != "local" and is_anisette_error(out) and len(tried) < 5:
             warn(f"Le serveur d'identification {url} ne répond pas correctement, j'en essaie un autre.")
             tried.add(url)
