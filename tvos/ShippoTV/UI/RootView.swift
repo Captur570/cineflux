@@ -19,43 +19,51 @@ struct ShippoTVApp: App {
 #elseif DIAG_STEPS
 // point d'entrée : StepLauncher.swift
 #else
+/// Point d'entrée volontairement minimal : sur tvOS 27, initialiser l'état ou observer l'appli dès son
+/// ouverture la refermait aussitôt. Tout démarre donc une fois la première vue affichée (comme la version
+/// de diagnostic « pas à pas », qui fonctionne).
 @main
 struct ShippoTVApp: App {
-    @StateObject private var model: AppModel
-    @Environment(\.scenePhase) private var scenePhase
-    @State private var previousCrash: [String]?
+    var body: some Scene {
+        WindowGroup { AppRoot() }
+    }
+}
 
-    init() {
-        Diag.begin()
+struct AppRoot: View {
+    @State private var model: AppModel?
+    @State private var previousCrash: [String]?
+    @State private var checked = false
+
+    var body: some View {
+        ZStack {
+            if let log = previousCrash {
+                DiagView(log: log) { previousCrash = nil; Diag.clearPrevious(); boot() }
+            } else if let m = model {
+                RootView()
+                    .environmentObject(m)
+                    .task {
+                        Diag.step("interface affichée")
+                        await m.start()
+                    }
+            } else {
+                Color(red: 11 / 255, green: 6 / 255, blue: 9 / 255).ignoresSafeArea()
+            }
+        }
+        .preferredColorScheme(.dark)
+        .task {
+            guard !checked else { return }
+            checked = true
+            Diag.begin()
+            if let p = Diag.previousCrash { previousCrash = p } else { boot() }
+        }
+    }
+
+    private func boot() {
         Diag.step("cache des images")
         // affiches et images de fond gardées en cache (mémoire + disque)
         URLCache.shared = URLCache(memoryCapacity: 96 * 1024 * 1024, diskCapacity: 400 * 1024 * 1024)
         Diag.step("état de l'appli")
-        _model = StateObject(wrappedValue: AppModel())
-        _previousCrash = State(initialValue: Diag.previousCrash)
-        Diag.step("initialisation terminée")
-    }
-
-    var body: some Scene {
-        WindowGroup {
-            Group {
-                if let log = previousCrash {
-                    DiagView(log: log) { previousCrash = nil; Diag.clearPrevious() }
-                } else {
-                    RootView()
-                        .environmentObject(model)
-                        .task {
-                            Diag.step("interface affichée")
-                            await model.start()
-                        }
-                }
-            }
-            .preferredColorScheme(.dark)
-            .tint(Theme.wine)
-        }
-        .onChange(of: scenePhase) { _, p in
-            if p != .active { Engine.shared.flush() }
-        }
+        model = AppModel()
     }
 }
 
