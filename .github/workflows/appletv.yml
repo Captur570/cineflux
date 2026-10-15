@@ -1,0 +1,84 @@
+# ShippoTV pour Apple TV : fabrication automatique sur un Mac de GitHub.
+# Produit : ShippoTV-AppleTV.ipa (non signée, à installer avec « atvload install ») + captures du simulateur tvOS.
+name: Appli Apple TV
+on:
+  push:
+    branches: [main]
+    paths: ["tvos/**", "tv/engine/**", "outils/build_atv.py", "outils/build_ios.py", ".github/workflows/appletv.yml", "version.txt", "ios/ci/mock.py"]
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: appletv-${{ github.ref_name }}
+  cancel-in-progress: true
+jobs:
+  appletv:
+    runs-on: macos-15
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+      - name: Versions
+        run: xcodebuild -version && xcodebuild -showsdks | grep -i tv && pod --version
+      - name: Outils
+        run: brew install xcodegen
+      - name: Moteur ShippoTV embarqué
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          TMDB_KEY: ${{ secrets.TMDB_KEY }}
+        run: python3 outils/build_atv.py
+      - name: Projet Xcode
+        working-directory: tvos
+        run: |
+          sed -i '' "s/MARKETING_VERSION: \".*\"/MARKETING_VERSION: \"$(cat ../version.txt)\"/; s/CURRENT_PROJECT_VERSION: \".*\"/CURRENT_PROJECT_VERSION: \"${GITHUB_RUN_NUMBER}\"/" project.yml
+          xcodegen generate
+          pod install
+      - name: Fabrication pour Apple TV (ipa)
+        working-directory: tvos
+        run: |
+          set -o pipefail
+          xcodebuild -workspace ShippoTV.xcworkspace -scheme ShippoTV -configuration Release -sdk appletvos \
+            -destination 'generic/platform=tvOS' -derivedDataPath build/dev \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build > build-dev.log 2>&1 || true
+          grep -E "error:|BUILD (SUCCEEDED|FAILED)" build-dev.log | head -80 || true
+          grep -q "BUILD SUCCEEDED" build-dev.log
+          APP=build/dev/Build/Products/Release-appletvos/ShippoTV.app
+          test -d "$APP"
+          /usr/libexec/PlistBuddy -c "Print :CFBundleSupportedPlatforms" "$APP/Info.plist"
+          ls -la "$APP" "$APP/Frameworks" || true
+          rm -rf Payload && mkdir Payload && cp -R "$APP" Payload/
+          zip -qry ShippoTV-AppleTV.ipa Payload
+          ls -la ShippoTV-AppleTV.ipa
+      - name: Journal de fabrication
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: journal-fabrication-appletv
+          path: tvos/build-*.log
+      - name: Fabrication pour le simulateur
+        continue-on-error: true
+        working-directory: tvos
+        run: |
+          set -o pipefail
+          xcodebuild -workspace ShippoTV.xcworkspace -scheme ShippoTV -configuration Debug -sdk appletvsimulator \
+            -destination 'generic/platform=tvOS Simulator' -derivedDataPath build/sim \
+            CODE_SIGNING_ALLOWED=NO build > build-sim.log 2>&1 || true
+          grep -E "error:|BUILD (SUCCEEDED|FAILED)" build-sim.log | head -60 || true
+      - name: Captures d'écran
+        continue-on-error: true
+        run: python3 tvos/ci/screens.py
+      - name: Publication (ShippoTV-AppleTV.ipa, captures et journaux)
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG=appletv-beta
+          gh release view $TAG >/dev/null 2>&1 || gh release create $TAG --prerelease --target "${{ github.sha }}" --title "ShippoTV Apple TV (bêta)" \
+            --notes "Version Apple TV de ShippoTV, fabriquée automatiquement. Installation : atvload install ShippoTV-AppleTV.ipa"
+          mkdir -p pub
+          [ -f tvos/ShippoTV-AppleTV.ipa ] && cp tvos/ShippoTV-AppleTV.ipa pub/
+          for f in tvos/ci/out/*.png tvos/ci/out/*.txt; do [ -f "$f" ] && cp "$f" "pub/capture-$(basename "$f")"; done
+          for f in tvos/build-dev.log tvos/build-sim.log; do [ -f "$f" ] && grep -E "error|warning: .*\.swift|BUILD" "$f" | tail -300 > "pub/$(basename "$f" .log)-resume.txt"; done
+          echo "run ${{ github.run_number }} $(date -u)" > pub/fabrication.txt
+          ls -la pub
+          gh release upload $TAG pub/* --clobber

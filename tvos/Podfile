@@ -1,0 +1,16 @@
+# Lecteur vidéo VLC 4 pour tvOS (MKV, TS, HLS, AC3, DTS, 4K, sous-titres dans les bandes noires)
+platform :tvos, '17.0'
+use_frameworks!
+inhibit_all_warnings!
+
+target 'ShippoTV' do
+  pod 'VLCKit', '4.0.0a25'
+end
+
+post_install do |installer|
+  installer.pods_project.targets.each do |t|
+    t.build_configurations.each do |c|
+      c.build_settings['TVOS_DEPLOYMENT_TARGET'] = '17.0'
+    end
+  end
+end

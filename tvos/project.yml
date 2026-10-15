@@ -1,0 +1,38 @@
+name: ShippoTV
+options:
+  bundleIdPrefix: app.shippotv
+  deploymentTarget:
+    tvOS: "17.0"
+targets:
+  ShippoTV:
+    type: application
+    platform: tvOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: ShippoTV
+        excludes: ["Resources/Engine/**"]
+      - path: ShippoTV/Resources/Engine
+        type: folder
+        buildPhase: resources
+    info:
+      path: ShippoTV/Info.plist
+      properties:
+        CFBundleDisplayName: ShippoTV
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        UILaunchScreen:
+          UIColorName: LaunchBackground
+        UIRequiresFullScreen: true
+        UIUserInterfaceStyle: Dark
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoads: true
+        ITSAppUsesNonExemptEncryption: false
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.shippotv.atv
+        MARKETING_VERSION: "5.3.1"
+        CURRENT_PROJECT_VERSION: "1"
+        SWIFT_VERSION: "5.0"
+        TARGETED_DEVICE_FAMILY: "3"
+        ASSETCATALOG_COMPILER_APPICON_NAME: "App Icon & Top Shelf Image"
+        ENABLE_USER_SCRIPT_SANDBOXING: NO

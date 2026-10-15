@@ -13,3 +13,13 @@ ios/Payload/
 ios/*.ipa
 ios/ci/out/
 ios/build-*.log
+tvos/ShippoTV/Resources/Engine/
+tvos/Pods/
+tvos/Podfile.lock
+tvos/*.xcodeproj/
+tvos/*.xcworkspace/
+tvos/build/
+tvos/Payload/
+tvos/*.ipa
+tvos/ci/out/
+tvos/build-*.log
