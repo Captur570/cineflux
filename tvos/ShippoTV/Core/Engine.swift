@@ -34,7 +34,9 @@ final class Engine {
                 let msg = exc?.toString() ?? "?"
                 let stack = exc?.objectForKeyedSubscript("stack")?.toString() ?? ""
                 NSLog("[moteur] exception : %@ %@", msg, stack)
+                Diag.step("JS exception : \(msg) \(stack.prefix(160))")
             }
+            Diag.step("moteur : fonctions natives")
             installNatives()
             let dir = Bundle.main.resourceURL!.appendingPathComponent("Engine", isDirectory: true)
             let order: [String] = (try? JSONSerialization.jsonObject(with: Data(contentsOf: dir.appendingPathComponent("order.json")))) as? [String]
@@ -44,6 +46,7 @@ final class Engine {
                     NSLog("[moteur] fichier manquant : %@", f)
                     continue
                 }
+                Diag.step("moteur : \(f)")
                 ctx.evaluateScript(src, withSourceURL: URL(string: "shippo://engine/" + f))
                 if f == "defaults.js", let t = testDefaults, let data = try? JSONSerialization.data(withJSONObject: t),
                    let json = String(data: data, encoding: .utf8) {
@@ -99,6 +102,7 @@ final class Engine {
 
         let log: @convention(block) (String, String) -> Void = { level, msg in
             NSLog("[moteur %@] %@", level, msg)
+            if level == "error" { Diag.step("JS erreur : \(msg.prefix(200))") }
         }
         c.setObject(unsafeBitCast(log, to: AnyObject.self), forKeyedSubscript: "__log" as NSString)
 

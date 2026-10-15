@@ -83,8 +83,9 @@ jobs:
           ls -la pub
           gh release upload $TAG pub/* --clobber
 
-  # Version de diagnostic : la même appli sans VLC (lecteur Apple), pour isoler un problème de lancement.
-  appletv-sans-vlc:
+  # Versions de diagnostic (sans VLC) : ShippoTV-diag (journal de démarrage affiché après un arrêt)
+  # et ShippoTV-minimal (mêmes réglages et fichiers, aucun code lancé), pour isoler un arrêt au lancement.
+  appletv-diag:
     runs-on: macos-15
     timeout-minutes: 45
     steps:
@@ -97,23 +98,27 @@ jobs:
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
           TMDB_KEY: ${{ secrets.TMDB_KEY }}
         run: python3 outils/build_atv.py
-      - name: Fabrication sans VLC
+      - name: Fabrication des versions de diagnostic
         working-directory: tvos
         run: |
           set -o pipefail
           rm -f Podfile
           sed -i '' "s/MARKETING_VERSION: \".*\"/MARKETING_VERSION: \"$(cat ../version.txt)\"/; s/CURRENT_PROJECT_VERSION: \".*\"/CURRENT_PROJECT_VERSION: \"${GITHUB_RUN_NUMBER}\"/" project.yml
           xcodegen generate
-          xcodebuild -project ShippoTV.xcodeproj -scheme ShippoTV -configuration Release -sdk appletvos \
-            -destination 'generic/platform=tvOS' -derivedDataPath build/dev \
-            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build > build-sansvlc.log 2>&1 || true
-          grep -E "error:|BUILD (SUCCEEDED|FAILED)" build-sansvlc.log | head -40 || true
-          grep -q "BUILD SUCCEEDED" build-sansvlc.log
-          rm -rf Payload && mkdir Payload && cp -R build/dev/Build/Products/Release-appletvos/ShippoTV.app Payload/
-          zip -qry ShippoTV-AppleTV-sans-VLC.ipa Payload && ls -la ShippoTV-AppleTV-sans-VLC.ipa
+          build() {
+            xcodebuild -project ShippoTV.xcodeproj -scheme ShippoTV -configuration Release -sdk appletvos \
+              -destination 'generic/platform=tvOS' -derivedDataPath build/$1 \
+              CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" "$2" build > build-$1.log 2>&1 || true
+            grep -E "error:|BUILD (SUCCEEDED|FAILED)" build-$1.log | head -40 || true
+            grep -q "BUILD SUCCEEDED" build-$1.log
+            rm -rf Payload && mkdir Payload && cp -R build/$1/Build/Products/Release-appletvos/ShippoTV.app Payload/
+            zip -qry ShippoTV-$1.ipa Payload && ls -la ShippoTV-$1.ipa
+          }
+          build diag "OTHER_SWIFT_FLAGS=\$(inherited)"
+          build minimal "OTHER_SWIFT_FLAGS=\$(inherited) -DDIAG_MINIMAL"
       - name: Publication
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           for i in 1 2 3 4 5 6; do gh release view appletv-beta >/dev/null 2>&1 && break; sleep 30; done
-          gh release upload appletv-beta tvos/ShippoTV-AppleTV-sans-VLC.ipa --clobber
+          gh release upload appletv-beta tvos/ShippoTV-diag.ipa tvos/ShippoTV-minimal.ipa --clobber

@@ -1,28 +1,89 @@
 import SwiftUI
 
+#if DIAG_MINIMAL
+/// Version de diagnostic minimale : mêmes réglages, icônes et fichiers que ShippoTV, mais aucun code lancé.
 @main
 struct ShippoTVApp: App {
-    @StateObject private var model = AppModel()
+    var body: some Scene {
+        WindowGroup {
+            VStack(spacing: 30) {
+                Text("ShippoTV minimal").font(.system(size: 70, weight: .heavy))
+                Text("Si vous lisez ceci, l'appli s'ouvre : le problème vient du code de ShippoTV, pas de son installation.")
+                    .font(.system(size: 30)).multilineTextAlignment(.center).frame(maxWidth: 1300)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Color(red: 0.25, green: 0.04, blue: 0.1))
+        }
+    }
+}
+#else
+@main
+struct ShippoTVApp: App {
+    @StateObject private var model: AppModel
     @Environment(\.scenePhase) private var scenePhase
+    @State private var previousCrash: [String]?
 
     init() {
+        Diag.begin()
+        Diag.step("cache des images")
         // affiches et images de fond gardées en cache (mémoire + disque)
         URLCache.shared = URLCache(memoryCapacity: 96 * 1024 * 1024, diskCapacity: 400 * 1024 * 1024)
+        Diag.step("état de l'appli")
+        _model = StateObject(wrappedValue: AppModel())
+        _previousCrash = State(initialValue: Diag.previousCrash)
+        Diag.step("initialisation terminée")
     }
 
     var body: some Scene {
         WindowGroup {
-            RootView()
-                .environmentObject(model)
-                .preferredColorScheme(.dark)
-                .tint(Theme.wine)
-                .task { await model.start() }
+            Group {
+                if let log = previousCrash {
+                    DiagView(log: log) { previousCrash = nil; Diag.clearPrevious() }
+                } else {
+                    RootView()
+                        .environmentObject(model)
+                        .task {
+                            Diag.step("interface affichée")
+                            await model.start()
+                        }
+                }
+            }
+            .preferredColorScheme(.dark)
+            .tint(Theme.wine)
         }
         .onChange(of: scenePhase) { _, p in
             if p != .active { Engine.shared.flush() }
         }
     }
 }
+
+/// Écran affiché quand le lancement précédent s'est arrêté net : les dernières étapes atteintes.
+struct DiagView: View {
+    let log: [String]
+    let onContinue: () -> Void
+    var body: some View {
+        VStack(alignment: .leading, spacing: 24) {
+            Text("Le lancement précédent s'est arrêté").font(.system(size: 52, weight: .heavy))
+            Text("Prenez cet écran en photo : la dernière ligne indique où ShippoTV s'est arrêté.")
+                .font(.system(size: 26)).foregroundStyle(Theme.muted)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 6) {
+                    if log.isEmpty { Text("(aucune étape enregistrée : arrêt avant le démarrage du code)") }
+                    ForEach(Array(log.enumerated()), id: \.offset) { _, l in
+                        Text(l).font(.system(size: 22, design: .monospaced)).lineLimit(3)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .frame(maxHeight: 700)
+            Button("Relancer ShippoTV", action: onContinue)
+        }
+        .padding(80)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(Color(red: 0.06, green: 0.03, blue: 0.05).ignoresSafeArea())
+    }
+}
+#endif
 
 struct RootView: View {
     @EnvironmentObject var model: AppModel

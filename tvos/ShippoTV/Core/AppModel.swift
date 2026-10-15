@@ -26,6 +26,7 @@ final class AppModel: ObservableObject {
     // MARK: - Démarrage
 
     func start() async {
+        Diag.step("démarrage du moteur")
         var td: [String: Any]? = nil
         if let t = test {
             td = [:]
@@ -34,6 +35,7 @@ final class AppModel: ObservableObject {
         }
         Engine.shared.profile = profileId
         Engine.shared.start(testDefaults: td)
+        Diag.step("moteur chargé")
         if let t = test, t.route != "setup", let server = t.server {
             _ = try? await Engine.shared.data("/api/config", ["server": server, "username": t.user ?? "", "password": t.pass ?? "", "country": "FR"])
         }
@@ -42,15 +44,29 @@ final class AppModel: ObservableObject {
 
     func load() async {
         do {
+            Diag.step("lecture des réglages")
             let c: Config = try await Engine.shared.call("/api/config")
             cfg = c
-            if !c.configured { phase = .setup; return }
+            Diag.step("réglages lus (configuré : \(c.configured))")
+            if !c.configured { phase = .setup; launchDone(); return }
             if c.profiles.count > 1 && !c.profiles.contains(where: { $0.id == profileId }) { phase = .profiles; return }
             if !c.profiles.contains(where: { $0.id == profileId }), let first = c.profiles.first { profileId = first.id }
+            Diag.step("chargement du catalogue")
             try await loadCatalog()
+            Diag.step("catalogue chargé (\(catalog?.movies.count ?? 0) films)")
             phase = .ready
+            launchDone()
         } catch {
+            Diag.step("erreur : \(error.localizedDescription)")
             phase = cfg?.configured == true ? .failed(error.localizedDescription) : .setup
+            launchDone()
+        }
+    }
+
+    private func launchDone() {
+        Task {
+            try? await Task.sleep(nanoseconds: 4_000_000_000)
+            Diag.finished()
         }
     }
 
