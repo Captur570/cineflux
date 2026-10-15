@@ -43,6 +43,7 @@ final class AppModel: ObservableObject {
     }
 
     func load() async {
+        if case .ready = phase {} else if phase != .loading { phase = .loading }   // retour visible tout de suite (code, QR, saisie)
         do {
             Diag.step("lecture des réglages")
             let c: Config = try await Engine.shared.call("/api/config")

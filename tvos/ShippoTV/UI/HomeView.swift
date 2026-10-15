@@ -8,6 +8,7 @@ struct HomeView: View {
         ScrollView(.vertical) {
             LazyVStack(alignment: .leading, spacing: 30) {
                 if let f = model.featured { Hero(movie: f) }
+                if model.cfg?.has_tmdb != true { TMDBHint().padding(.horizontal, 80) }
                 let resume = model.resumeMovies
                 if !resume.isEmpty { ResumeRow(items: resume) }
                 let favs = model.favMovies
@@ -70,6 +71,19 @@ struct Hero: View {
             .padding(.bottom, 40)
         }
         .task { await model.fullMeta(movie) }
+    }
+}
+
+/// Sans clé TMDB : pas d'affiches ni de résumés. La clé arrive avec le code de jumelage du PC.
+struct TMDBHint: View {
+    var body: some View {
+        HStack(spacing: 20) {
+            Image(systemName: "photo.on.rectangle.angled").font(.system(size: 40)).foregroundStyle(Theme.accent2)
+            Text("Pas d'affiches ni de résumés : la clé TMDB n'est pas encore sur cette Apple TV. Sur le PC, Réglages › Synchronisation › Associer un appareil, cochez « Transmettre aussi mes identifiants IPTV et la clé TMDB », puis saisissez le code dans Réglages › Synchronisation.")
+                .font(.system(size: 24)).foregroundStyle(.white.opacity(0.85))
+        }
+        .padding(28)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
     }
 }
 
