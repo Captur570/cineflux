@@ -16,6 +16,8 @@ struct ShippoTVApp: App {
         }
     }
 }
+#elseif DIAG_STEPS
+// point d'entrée : StepLauncher.swift
 #else
 @main
 struct ShippoTVApp: App {

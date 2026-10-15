@@ -116,9 +116,10 @@ jobs:
           }
           build diag "OTHER_SWIFT_FLAGS=\$(inherited)"
           build minimal "OTHER_SWIFT_FLAGS=\$(inherited) -DDIAG_MINIMAL"
+          build etapes "OTHER_SWIFT_FLAGS=\$(inherited) -DDIAG_STEPS"
       - name: Publication
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           for i in 1 2 3 4 5 6; do gh release view appletv-beta >/dev/null 2>&1 && break; sleep 30; done
-          gh release upload appletv-beta tvos/ShippoTV-diag.ipa tvos/ShippoTV-minimal.ipa --clobber
+          gh release upload appletv-beta tvos/ShippoTV-diag.ipa tvos/ShippoTV-minimal.ipa tvos/ShippoTV-etapes.ipa --clobber
