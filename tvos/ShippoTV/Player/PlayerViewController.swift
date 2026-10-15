@@ -1,3 +1,4 @@
+#if canImport(VLCKit) || canImport(TVVLCKit)
 import UIKit
 #if canImport(VLCKit)
 import VLCKit            // VLC 4 : sous-titres dans les bandes noires
@@ -578,3 +579,4 @@ enum PlayerPresenter {
         top.present(p, animated: true)
     }
 }
+#endif
