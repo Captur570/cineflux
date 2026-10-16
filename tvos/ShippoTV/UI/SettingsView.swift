@@ -57,6 +57,11 @@ struct SettingsView: View {
                     }
                 }
 
+                section("Diagnostic", icon: "stethoscope") {
+                    Text("Teste la clé TMDB, les affiches et la synchronisation sur cette Apple TV.").font(.system(size: 24)).foregroundStyle(Theme.muted)
+                    NavigationLink("Lancer le diagnostic") { DiagnosticView().background(AmbientBackground()) }
+                }
+
                 section("Catalogue", icon: "arrow.clockwise") {
                     Text("Le catalogue se met à jour tout seul toutes les 24 h.").font(.system(size: 24)).foregroundStyle(Theme.muted)
                     Button("Actualiser maintenant") {
@@ -91,8 +96,13 @@ struct SettingsView: View {
     private func join() async {
         syncError = nil
         do {
-            let r: SyncStatus = try await Engine.shared.call("/api/sync", ["action": "join", "code": code])
+            model.busy = "Association en cours…"
+            defer { model.busy = nil }
+            let raw = try await Engine.shared.data("/api/sync", ["action": "join", "code": code])
+            model.lastJoin = String(decoding: raw.prefix(200), as: UTF8.self)
+            let r = try JSONDecoder().decode(SyncStatus.self, from: raw)
             if let e = r.error { syncError = e; return }
+            model.busy = "Associée : chargement du catalogue et des réglages…"
             sync = r
             code = ""
             let hadTMDB = model.cfg?.has_tmdb == true

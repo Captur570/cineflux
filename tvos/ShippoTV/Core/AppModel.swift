@@ -13,6 +13,9 @@ final class AppModel: ObservableObject {
     @Published var discover: [DiscoverRow] = []
     @Published var info: [String: MovieInfo] = [:]
     @Published var toast: String?
+    @Published var busy: String?
+    var lastJoin: String?
+    var lastMetaError: String?
 
     let test = TestConfig.load()
     private var movieIdx: [String: Movie] = [:]
@@ -206,8 +209,12 @@ final class AppModel: ObservableObject {
         missing.forEach { pendingMeta.insert($0.k) }
         let body: [[String: Any]] = missing.map { ["kind": "movie", "key": $0.k, "title": $0.t, "year": $0.y as Any? ?? NSNull()] }
         Task {
-            guard let d = try? await Engine.shared.data("/api/enrich", ["items": body]),
-                  let res = try? JSONDecoder().decode([String: Meta?].self, from: d) else {
+            let res: [String: Meta?]
+            do {
+                let d = try await Engine.shared.data("/api/enrich", ["items": body])
+                res = try JSONDecoder().decode([String: Meta?].self, from: d)
+            } catch {
+                lastMetaError = error.localizedDescription
                 missing.forEach { pendingMeta.remove($0.k) }
                 return
             }

@@ -112,6 +112,15 @@ struct RootView: View {
             case .failed(let msg):
                 FailedView(message: msg)
             }
+            if let b = model.busy {
+                VStack(spacing: 24) {
+                    ProgressView()
+                    Text(b).font(.system(size: 30, weight: .bold))
+                    Text("Le premier chargement du catalogue peut prendre une minute.").font(.system(size: 22)).foregroundStyle(Theme.muted)
+                }
+                .padding(60)
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 30, style: .continuous))
+            }
             if let t = model.toast {
                 VStack {
                     Spacer()
