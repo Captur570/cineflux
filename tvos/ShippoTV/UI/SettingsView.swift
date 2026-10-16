@@ -95,7 +95,15 @@ struct SettingsView: View {
             if let e = r.error { syncError = e; return }
             sync = r
             code = ""
+            let hadTMDB = model.cfg?.has_tmdb == true
             await model.load()
+            await model.reloadConfig()
+            model.prefetchPosters()
+            if model.cfg?.has_tmdb == true {
+                model.toast = hadTMDB ? "Associée : vos reprises et Ma liste arrivent" : "Associée, clé TMDB reçue : les affiches arrivent"
+            } else {
+                model.toast = "Associée. Pour les affiches, refaites un code sur le PC en cochant « identifiants IPTV et clé TMDB »"
+            }
         } catch { syncError = error.localizedDescription }
     }
 }

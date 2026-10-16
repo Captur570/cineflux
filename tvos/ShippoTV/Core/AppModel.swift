@@ -76,11 +76,51 @@ final class AppModel: ObservableObject {
         catalog = cat
         movieIdx = Dictionary(cat.movies.map { ($0.k, $0) }, uniquingKeysWith: { a, _ in a })
         meta.merge(cat.meta ?? [:]) { a, _ in a }
-        Task { await loadDiscover() }
+        Task {
+            await loadDiscover()
+            prefetchPosters()
+        }
+        prefetchPosters()
+        startRefreshLoop()
     }
 
     func reloadConfig() async {
-        if let c: Config = try? await Engine.shared.call("/api/config") { cfg = c }
+        guard let c: Config = try? await Engine.shared.call("/api/config") else { return }
+        let gotTMDB = c.has_tmdb == true && cfg?.has_tmdb != true
+        cfg = c
+        if gotTMDB { pendingMeta.removeAll(); prefetchPosters() }   // la clé vient d'arriver (code du PC)
+    }
+
+    /// Affiches des rangées visibles demandées d'emblée (sans attendre leur apparition à l'écran),
+    /// et de nouveau dès que la clé TMDB arrive.
+    func prefetchPosters() {
+        guard cfg?.has_tmdb == true, catalog != nil else { return }
+        var seen = Set<String>()
+        var list: [Movie] = []
+        let add: ([Movie]) -> Void = { ms in for m in ms where !seen.contains(m.k) { seen.insert(m.k); list.append(m) } }
+        add(resumeMovies.map(\.movie))
+        add(favMovies)
+        add(Array(recentMovies.prefix(30)))
+        for row in discover { add(Array(movies(for: row).prefix(20))) }
+        for row in categoryRows { add(Array(row.items.prefix(16))) }
+        var i = 0
+        while i < list.count {
+            want(Array(list[i..<min(list.count, i + 24)]))
+            i += 24
+        }
+    }
+
+    /// Changements venus des autres appareils (synchronisation) : réglages relus toutes les 30 s.
+    private var refreshing = false
+    private func startRefreshLoop() {
+        guard !refreshing else { return }
+        refreshing = true
+        Task {
+            while true {
+                try? await Task.sleep(nanoseconds: 30_000_000_000)
+                await reloadConfig()
+            }
+        }
     }
 
     func chooseProfile(_ p: Profile) async {
