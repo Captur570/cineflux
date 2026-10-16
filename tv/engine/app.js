@@ -1211,6 +1211,8 @@
       for (const r of d.reminders || []) if ((r.end || 0) > t) out[`p/${pid}/rem/${r.key}@${r.start}`] = r;
     }
     for (const [mk, tid] of Object.entries(c.fixes || {})) out[`fix/${mk}`] = tid;
+    // clé TMDB partagée dans le groupe (chiffrée comme le reste) : les appareils qui n'en ont pas la reçoivent
+    if (tmdbKey()) out['cfg/tmdb'] = tmdbKey();
     // présence de lecture et demandes d'arrêt (éléments passagers)
     const st = A.sync && A.sync.store;
     if (st && A.playing && A.play_since) out[`play/${st.device}`] = { t: A.play_title, n: st.name, since: A.play_since, hb: Math.floor(t / 300) * 300 };
@@ -1250,6 +1252,10 @@
     changes = changes.slice().sort((a, b) => (!a[0].startsWith('prof/')) - (!b[0].startsWith('prof/')));
     for (const [k, v] of changes) {
       const parts = k.split('/');
+      if (k === 'cfg/tmdb') {
+        if (typeof v === 'string' && v.trim() && !tmdbKey()) { c.tmdb_key = v.trim(); A.disc_cache = {}; event('Clé TMDB reçue de vos autres appareils : les affiches arrivent', 'info', 'tmdb_key'); }
+        continue;
+      }
       if (parts[0] === 'prof') {
         const pid = parts[1];
         let cur = c.profiles.find(p => p.id === pid);

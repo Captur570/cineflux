@@ -78,10 +78,10 @@ def _read_version():
     for d in (resource_dir(), app_dir()):
         try:
             with open(os.path.join(d, "version.txt"), encoding="utf-8") as f:
-                return f.read().strip() or "5.3.1"
+                return f.read().strip() or "5.3.2"
         except OSError:
             pass
-    return "5.3.1"
+    return "5.3.2"
 
 
 def _read_defaults():
@@ -2409,6 +2409,9 @@ def sync_export():
                     out[f"p/{pid}/rem/{r.get('key')}@{r.get('start')}"] = r
         for mk, tid in (c.get("fixes") or {}).items():
             out[f"fix/{mk}"] = tid
+    # clé TMDB partagée dans le groupe (chiffrée comme le reste) : les appareils qui n'en ont pas la reçoivent
+    if tmdb_key():
+        out["cfg/tmdb"] = tmdb_key()
     # présence de lecture et demandes d'arrêt (éléments passagers)
     s = getattr(APP, "sync", None)
     if s and APP.playing and APP.play_since:
@@ -2461,6 +2464,10 @@ def sync_apply(changes):
         changes = sorted(changes, key=lambda kv: not kv[0].startswith("prof/"))   # profils d'abord
         for k, v in changes:
             parts = k.split("/", 3)
+            if k == "cfg/tmdb":
+                if isinstance(v, str) and v.strip() and not tmdb_key():
+                    c["tmdb_key"] = v.strip()
+                continue
             if parts[0] == "prof":
                 pid = parts[1]
                 cur = next((p for p in c["profiles"] if p["id"] == pid), None)

@@ -1,3 +1,7 @@
+ShippoTV 5.3.2
+- Synchronisation : la clé TMDB est partagée entre vos appareils associés (chiffrée comme le reste). Un appareil sans clé (Apple TV, nouvelle télé) reçoit tout seul affiches et résumés
+- Apple TV : première version (films, accueil, fiche, lecteur VLC, QR code, synchronisation)
+
 ShippoTV 5.3.1
 - Télé et iPad : configuration avec votre téléphone. Un QR code s'affiche, vous collez ou tapez vos identifiants sur le téléphone, et la télé se connecte toute seule (identifiants chiffrés, fini la saisie à la télécommande)
 - iPad : lecteur contrôlable au toucher (1 tap : commandes, 2 taps : ±10 s, 3 taps : ±30 s), interface plus fluide et animée
