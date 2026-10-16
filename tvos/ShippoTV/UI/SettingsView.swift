@@ -101,7 +101,7 @@ struct SettingsView: View {
             let raw = try await Engine.shared.data("/api/sync", ["action": "join", "code": code])
             model.lastJoin = String(decoding: raw.prefix(200), as: UTF8.self)
             let r = try JSONDecoder().decode(SyncStatus.self, from: raw)
-            if let e = r.error { syncError = e; return }
+            if let e = r.error, !e.isEmpty { syncError = e; return }
             model.busy = "Associée : chargement du catalogue et des réglages…"
             sync = r
             code = ""

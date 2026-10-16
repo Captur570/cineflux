@@ -162,7 +162,7 @@ struct SetupView: View {
             let raw = try await Engine.shared.data("/api/sync", ["action": "join", "code": code])
             model.lastJoin = String(decoding: raw.prefix(200), as: UTF8.self)
             let r = try JSONDecoder().decode(SyncStatus.self, from: raw)
-            if let e = r.error { error = e; return }
+            if let e = r.error, !e.isEmpty { error = e; return }
             await model.load()
             if model.phase == .setup { error = "Synchronisé : il reste à saisir vos identifiants IPTV (QR code ou saisie manuelle)." }
         } catch { self.error = error.localizedDescription }

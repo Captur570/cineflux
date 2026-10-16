@@ -280,6 +280,9 @@ final class PlayerViewController: UIViewController {
         updateTimes(t)
     }
 
+    /// Fermeture demandée de l'extérieur (arrêt depuis un autre appareil) : même chemin que le bouton Retour.
+    func closeFromApp() { close() }
+
     private func close() {
         guard !closing else { return }
         closing = true
@@ -561,6 +564,10 @@ final class PaddedLabel: UILabel {
 @MainActor
 enum PlayerPresenter {
     private static var current: PlayerViewController?
+
+    static func closeIfOpen() {
+        if let p = current, p.presentingViewController != nil { p.closeFromApp() }
+    }
 
     static func present(_ item: PlayerViewController.Item, onEvent: @escaping (PlayerViewController.Event) -> Void) {
         if let p = current, p.presentingViewController != nil {

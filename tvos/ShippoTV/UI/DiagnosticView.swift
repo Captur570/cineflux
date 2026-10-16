@@ -91,5 +91,6 @@ struct DiagnosticView: View {
         }
         add("Dernière association", model.lastJoin ?? "aucune depuis le lancement")
         add("Dernière erreur d'affiches", model.lastMetaError ?? "aucune")
+        add("Messages du moteur", model.lastEvents.isEmpty ? "aucun depuis le lancement" : model.lastEvents.suffix(5).joined(separator: " | "))
     }
 }

@@ -49,6 +49,7 @@ struct Movie: Codable, Hashable, Identifiable {
     let c: FlexList?
     let a: Double?
     let r: Double?
+    let tm: FlexID?
     let v: [Version]
     var id: String { k }
 }

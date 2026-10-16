@@ -47,6 +47,10 @@ final class PlayerViewController: AVPlayerViewController {
 enum PlayerPresenter {
     private static var current: PlayerViewController?
 
+    static func closeIfOpen() {
+        if let p = current, p.presentingViewController != nil { p.dismiss(animated: true) }
+    }
+
     static func present(_ item: PlayerViewController.Item, onEvent: @escaping (PlayerViewController.Event) -> Void) {
         guard let root = UIApplication.shared.connectedScenes.compactMap({ ($0 as? UIWindowScene)?.keyWindow }).first?.rootViewController else { return }
         var top = root

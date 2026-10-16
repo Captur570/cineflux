@@ -84,14 +84,18 @@ final class AppModel: ObservableObject {
             prefetchPosters()
         }
         prefetchPosters()
-        startRefreshLoop()
+        startEventLoop()
     }
 
     func reloadConfig() async {
         guard let c: Config = try? await Engine.shared.call("/api/config") else { return }
         let gotTMDB = c.has_tmdb == true && cfg?.has_tmdb != true
         cfg = c
-        if gotTMDB { pendingMeta.removeAll(); prefetchPosters() }   // la clé vient d'arriver (code du PC)
+        if gotTMDB { pendingMeta.removeAll(); metaMiss.removeAll(); prefetchPosters() }   // la clé vient d'arriver
+        // profil supprimé ou nouveaux profils arrivés par la synchro
+        if phase == .ready, !c.profiles.contains(where: { $0.id == profileId }) {
+            if c.profiles.count > 1 { phase = .profiles } else if let f = c.profiles.first { profileId = f.id }
+        }
     }
 
     /// Affiches des rangées visibles demandées d'emblée (sans attendre leur apparition à l'écran),
@@ -106,22 +110,49 @@ final class AppModel: ObservableObject {
         add(Array(recentMovies.prefix(30)))
         for row in discover { add(Array(movies(for: row).prefix(20))) }
         for row in categoryRows { add(Array(row.items.prefix(16))) }
-        var i = 0
-        while i < list.count {
-            want(Array(list[i..<min(list.count, i + 24)]))
-            i += 24
-        }
+        want(list, front: false)
     }
 
     /// Changements venus des autres appareils (synchronisation) : réglages relus toutes les 30 s.
-    private var refreshing = false
-    private func startRefreshLoop() {
-        guard !refreshing else { return }
-        refreshing = true
+    // MARK: - Messages du moteur (comme l'interface du PC, de la télé et de l'iPad)
+
+    struct EngineEvent: Decodable { let id: Int; let msg: String?; let kind: String? }
+    @Published var lastEvents: [String] = []
+    private var listening = false
+    private var eventId = -1
+
+    private func startEventLoop() {
+        guard !listening else { return }
+        listening = true
         Task {
             while true {
-                try? await Task.sleep(nanoseconds: 30_000_000_000)
+                await pollEvents()
+                try? await Task.sleep(nanoseconds: 2_500_000_000)
+            }
+        }
+    }
+
+    private func pollEvents() async {
+        guard let evs: [EngineEvent] = try? await Engine.shared.call("/api/events?since=\(max(0, eventId))") else { return }
+        if eventId < 0 { eventId = evs.map(\.id).max() ?? 0; return }        // au démarrage : on part des messages à venir
+        for e in evs {
+            eventId = max(eventId, e.id)
+            lastEvents.append("\(e.kind ?? "?")\((e.msg ?? "").isEmpty ? "" : " : " + (e.msg ?? ""))")
+            if lastEvents.count > 12 { lastEvents.removeFirst(lastEvents.count - 12) }
+            switch e.kind {
+            case "sync":
                 await reloadConfig()
+            case "catalog":
+                try? await loadCatalog()
+                if let m = e.msg, !m.isEmpty { toast = m }
+            case "tmdb_key":
+                if let m = e.msg, !m.isEmpty { toast = m }
+                await reloadConfig()
+            case "remote_stop":
+                PlayerPresenter.closeIfOpen()
+                if let m = e.msg, !m.isEmpty { toast = m }
+            default:
+                break
             }
         }
     }
@@ -202,32 +233,55 @@ final class AppModel: ObservableObject {
     func poster(_ m: Movie) -> URL? { TMDBImage.url(meta["m:" + m.k]?.p, size: "w342") }
     func backdrop(_ m: Movie, large: Bool = true) -> URL? { TMDBImage.url(meta["m:" + m.k]?.b, size: large ? "w1280" : "w780") }
 
-    func want(_ items: [Movie]) {
+    /// Fiches TMDB demandées par lots de 24, 2 lots à la fois au plus (comme sur PC, télé et iPad) :
+    /// lancer tous les lots d'un coup déclenchait la limite de TMDB et des affiches manquaient.
+    /// Les rangées visibles passent devant ; une affiche manquée sera redemandée (2 essais).
+    private var metaQueue: [Movie] = []
+    private var metaInflight = 0
+    private var metaMiss: [String: Int] = [:]
+
+    func want(_ items: [Movie], front: Bool = true) {
         guard cfg?.has_tmdb == true else { return }
-        let missing = items.filter { meta["m:" + $0.k] == nil && !pendingMeta.contains($0.k) }.prefix(24)
+        let missing = items.filter { meta["m:" + $0.k] == nil && !pendingMeta.contains($0.k) && (metaMiss[$0.k] ?? 0) < 2 }
         guard !missing.isEmpty else { return }
         missing.forEach { pendingMeta.insert($0.k) }
-        let body: [[String: Any]] = missing.map { ["kind": "movie", "key": $0.k, "title": $0.t, "year": $0.y as Any? ?? NSNull()] }
-        Task {
-            let res: [String: Meta?]
-            do {
-                let d = try await Engine.shared.data("/api/enrich", ["items": body])
-                res = try JSONDecoder().decode([String: Meta?].self, from: d)
-            } catch {
-                lastMetaError = error.localizedDescription
-                missing.forEach { pendingMeta.remove($0.k) }
-                return
+        if front { metaQueue.insert(contentsOf: missing, at: 0) } else { metaQueue.append(contentsOf: missing) }
+        pumpMeta()
+    }
+
+    private func pumpMeta() {
+        while metaInflight < 2 && !metaQueue.isEmpty {
+            let batch = Array(metaQueue.prefix(24))
+            metaQueue.removeFirst(batch.count)
+            metaInflight += 1
+            let body: [[String: Any]] = batch.map {
+                ["kind": "movie", "key": $0.k, "title": $0.t, "year": $0.y as Any? ?? NSNull(), "tmdb": $0.tm?.json ?? NSNull()]
             }
-            var add: [String: Meta] = [:]
-            for (k, v) in res { if let v = v { add[k] = v } }
-            meta.merge(add) { _, b in b }
+            Task {
+                defer { metaInflight -= 1; pumpMeta() }
+                let res: [String: Meta?]
+                do {
+                    let d = try await Engine.shared.data("/api/enrich", ["items": body])
+                    res = try JSONDecoder().decode([String: Meta?].self, from: d)
+                } catch {
+                    lastMetaError = error.localizedDescription
+                    batch.forEach { pendingMeta.remove($0.k); metaMiss[$0.k, default: 0] += 1 }
+                    return
+                }
+                var add: [String: Meta] = [:]
+                for m in batch {
+                    if let v = res["m:" + m.k] ?? nil { add["m:" + m.k] = v }
+                    else { pendingMeta.remove(m.k); metaMiss[m.k, default: 0] += 1 }   // manquée : pourra être redemandée
+                }
+                if !add.isEmpty { meta.merge(add) { _, b in b } }
+            }
         }
     }
 
     /// Fiche complète (résumé, genres, durée) pour la page d'un film.
     func fullMeta(_ m: Movie) async {
         if meta["m:" + m.k]?.o == nil, cfg?.has_tmdb == true {
-            let body: [String: Any] = ["items": [["kind": "movie", "key": m.k, "title": m.t, "year": m.y as Any? ?? NSNull()]]]
+            let body: [String: Any] = ["items": [["kind": "movie", "key": m.k, "title": m.t, "year": m.y as Any? ?? NSNull(), "tmdb": m.tm?.json ?? NSNull()]]]
             if let d = try? await Engine.shared.data("/api/enrich", body),
                let res = try? JSONDecoder().decode([String: Meta?].self, from: d), let v = res["m:" + m.k] ?? nil {
                 meta["m:" + m.k] = v
