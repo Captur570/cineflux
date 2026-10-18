@@ -8,6 +8,8 @@ on:
 concurrency:
   group: appletv-repro
   cancel-in-progress: true
+permissions:
+  contents: write
 jobs:
   repro:
     runs-on: macos-15
@@ -42,3 +44,11 @@ jobs:
           path: |
             tvos/ci/repro/
             tvos/build-sim.log
+      - name: Publication des résultats (pré-version « appletv-repro », séparée de la bêta)
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG=appletv-repro
+          gh release view $TAG >/dev/null 2>&1 || gh release create $TAG --prerelease --target "${{ github.sha }}" --title "Apple TV - essais de reproduction" --notes "Résultats des essais sur simulateur (pas une version à installer)."
+          cd tvos/ci/repro && zip -q ../repro.zip * && cd .. && gh release upload $TAG repro.zip --clobber
