@@ -193,7 +193,7 @@
       this._busy = false;
       this._woken = false;
       if (!store.device) store.device = hex(randomBytes(8));
-      if (!store.name) store.name = 'Télé Samsung';
+      if (!store.name) store.name = ({ atv: 'Apple TV', ios: 'iPad' })[G.SHIPPO_PLATFORM] || 'Télé Samsung';
     }
 
     // ---------------------------------------------------------------- état
