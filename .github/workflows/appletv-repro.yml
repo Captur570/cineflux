@@ -1,0 +1,54 @@
+# Essais « reproduire avant de corriger » sur le simulateur Apple TV (branche repro uniquement) :
+# rien n'est publié dans la version bêta, les résultats sont dans l'onglet Actions (artefact « repro »).
+name: Apple TV - reproduction
+on:
+  push:
+    branches: [repro]
+  workflow_dispatch:
+concurrency:
+  group: appletv-repro
+  cancel-in-progress: true
+permissions:
+  contents: write
+jobs:
+  repro:
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Outils
+        run: brew install xcodegen
+      - name: Moteur ShippoTV embarqué
+        run: python3 outils/build_atv.py
+      - name: Projet Xcode
+        working-directory: tvos
+        run: |
+          xcodegen generate
+          pod install
+      - name: Fabrication pour le simulateur
+        working-directory: tvos
+        run: |
+          set -o pipefail
+          xcodebuild -workspace ShippoTV.xcworkspace -scheme ShippoTV -configuration Debug -sdk appletvsimulator \
+            -destination 'generic/platform=tvOS Simulator' -derivedDataPath build/sim \
+            CODE_SIGNING_ALLOWED=NO build > build-sim.log 2>&1 || true
+          grep -E "error:|BUILD (SUCCEEDED|FAILED)" build-sim.log | head -60 || true
+          grep -q "BUILD SUCCEEDED" build-sim.log
+      - name: Reproduction
+        run: python3 tvos/ci/repro.py
+      - name: Résultats
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: repro
+          path: |
+            tvos/ci/repro/
+            tvos/build-sim.log
+      - name: Publication des résultats (pré-version « appletv-repro », séparée de la bêta)
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG=appletv-repro
+          gh release view $TAG >/dev/null 2>&1 || gh release create $TAG --prerelease --target "${{ github.sha }}" --title "Apple TV - essais de reproduction" --notes "Résultats des essais sur simulateur (pas une version à installer)."
+          cd tvos/ci/repro && zip -q ../repro.zip * && cd .. && gh release upload $TAG repro.zip --clobber

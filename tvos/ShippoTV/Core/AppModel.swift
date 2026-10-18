@@ -6,7 +6,30 @@ import SwiftUI
 final class AppModel: ObservableObject {
     enum Phase: Equatable { case loading, setup, profiles, ready, failed(String) }
 
-    @Published var phase: Phase = .loading
+    @Published var phase: Phase = .loading {
+        didSet { if phase != oldValue { Diag.step("écran → \(phase)"); if joinT0 != nil { trace("écran affiché : \(phase)") } } }
+    }
+    /// Suivi pas à pas de l'association (affiché sur l'écran de bienvenue et dans le Diagnostic).
+    @Published var joinTrace: [String] = []
+    private var joinT0: Date?
+    /// Essais GitHub : position actuelle du parcours automatique de l'accueil.
+    var testMark = ""
+    /// Essais GitHub : journal écrit dans Documents/essai.txt (lu par simctl, plus fiable que le journal système).
+    static func appendTestLog(_ line: String) {
+        guard let dir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else { return }
+        let url = dir.appendingPathComponent("essai.txt")
+        let data = Data((line + "\n").utf8)
+        if let h = try? FileHandle(forWritingTo: url) { h.seekToEndOfFile(); h.write(data); try? h.close() }
+        else { try? data.write(to: url) }
+    }
+
+    func trace(_ s: String, start: Bool = false) {
+        if start || joinT0 == nil { joinT0 = Date(); joinTrace = [] }
+        let line = String(format: "%5.1f s  ", Date().timeIntervalSince(joinT0 ?? Date())) + s
+        joinTrace.append(line)
+        NSLog("[association] %@", line)
+        if test != nil { Self.appendTestLog("[association] " + line) }
+    }
     @Published var cfg: Config?
     @Published var catalog: Catalog?
     @Published var meta: [String: Meta] = [:]
@@ -35,11 +58,13 @@ final class AppModel: ObservableObject {
             td = [:]
             if let a = t.tmdbApi { td?["tmdb_api"] = a }
             if let k = t.tmdbKey { td?["tmdb_key"] = k }
+            if let u = t.syncUrl { td?["supabase_url"] = u; td?["supabase_key"] = t.syncKey ?? "" }
+            startStatsLog()
         }
         Engine.shared.profile = profileId
         Engine.shared.start(testDefaults: td)
         Diag.step("moteur chargé")
-        if let t = test, t.route != "setup", let server = t.server {
+        if let t = test, t.route != "setup", t.route != "join", let server = t.server {
             _ = try? await Engine.shared.data("/api/config", ["server": server, "username": t.user ?? "", "password": t.pass ?? "", "country": "FR"])
         }
         await load()
@@ -52,12 +77,14 @@ final class AppModel: ObservableObject {
             let c: Config = try await Engine.shared.call("/api/config")
             cfg = c
             Diag.step("réglages lus (configuré : \(c.configured))")
+            if joinT0 != nil { trace("réglages relus : abonnement \(c.configured ? "configuré" : "NON configuré"), \(c.profiles.count) profil(s)") }
             if !c.configured { phase = .setup; launchDone(); return }
             if c.profiles.count > 1 && !c.profiles.contains(where: { $0.id == profileId }) { phase = .profiles; return }
             if !c.profiles.contains(where: { $0.id == profileId }), let first = c.profiles.first { profileId = first.id }
             Diag.step("chargement du catalogue")
             try await loadCatalog()
             Diag.step("catalogue chargé (\(catalog?.movies.count ?? 0) films)")
+            if joinT0 != nil { trace("catalogue chargé : \(catalog?.movies.count ?? 0) films") }
             phase = .ready
             launchDone()
         } catch {
@@ -239,6 +266,25 @@ final class AppModel: ObservableObject {
     private var metaQueue: [Movie] = []
     private var metaInflight = 0
     private var metaMiss: [String: Int] = [:]
+    private var metaAsked = 0, metaFound = 0, metaNone = 0, metaErrors = 0
+
+    /// État des fiches TMDB (Réglages › Diagnostic et journal des essais GitHub).
+    var metaSummary: String {
+        "fiches \(meta.count) · demandées \(metaAsked), trouvées \(metaFound), introuvables \(metaNone), lots en erreur \(metaErrors) · file d'attente \(metaQueue.count), lots en cours \(metaInflight)"
+    }
+
+    /// Essais GitHub : état des affiches écrit dans le journal toutes les 5 s.
+    private func startStatsLog() {
+        let t0 = Date()
+        Task {
+            while true {
+                try? await Task.sleep(nanoseconds: 5_000_000_000)
+                let line = "\(Int(Date().timeIntervalSince(t0))) s · \(ImageStats.shared.summary) · \(metaSummary) · écran \(phase) \(testMark)"
+                NSLog("[stats] %@", line)
+                Self.appendTestLog(line)
+            }
+        }
+    }
 
     func want(_ items: [Movie], front: Bool = true) {
         guard cfg?.has_tmdb == true else { return }
@@ -257,6 +303,7 @@ final class AppModel: ObservableObject {
             let body: [[String: Any]] = batch.map {
                 ["kind": "movie", "key": $0.k, "title": $0.t, "year": $0.y as Any? ?? NSNull(), "tmdb": $0.tm?.json ?? NSNull()]
             }
+            metaAsked += batch.count
             Task {
                 defer { metaInflight -= 1; pumpMeta() }
                 let res: [String: Meta?]
@@ -265,13 +312,14 @@ final class AppModel: ObservableObject {
                     res = try JSONDecoder().decode([String: Meta?].self, from: d)
                 } catch {
                     lastMetaError = error.localizedDescription
+                    metaErrors += 1
                     batch.forEach { pendingMeta.remove($0.k); metaMiss[$0.k, default: 0] += 1 }
                     return
                 }
                 var add: [String: Meta] = [:]
                 for m in batch {
-                    if let v = res["m:" + m.k] ?? nil { add["m:" + m.k] = v }
-                    else { pendingMeta.remove(m.k); metaMiss[m.k, default: 0] += 1 }   // manquée : pourra être redemandée
+                    if let v = res["m:" + m.k] ?? nil { add["m:" + m.k] = v; metaFound += 1 }
+                    else { metaNone += 1; pendingMeta.remove(m.k); metaMiss[m.k, default: 0] += 1 }   // manquée : pourra être redemandée
                 }
                 if !add.isEmpty { meta.merge(add) { _, b in b } }
             }
@@ -357,8 +405,14 @@ struct TestConfig: Decodable {
     let route: String?
     let tmdbApi: String?
     let tmdbKey: String?
+    let imgBase: String?
+    let syncUrl: String?
+    let syncKey: String?
+    let code: String?
 
-    enum CodingKeys: String, CodingKey { case server, user, pass, route, tmdbApi = "tmdb_api", tmdbKey = "tmdb_key" }
+    enum CodingKeys: String, CodingKey {
+        case server, user, pass, route, code, tmdbApi = "tmdb_api", tmdbKey = "tmdb_key", imgBase = "img_base", syncUrl = "sync_url", syncKey = "sync_key"
+    }
 
     static func load() -> TestConfig? {
         guard let s = ProcessInfo.processInfo.environment["SHIPPO_TEST"], let d = s.data(using: .utf8) else { return nil }

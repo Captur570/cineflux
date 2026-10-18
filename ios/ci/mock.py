@@ -62,6 +62,29 @@ for raw, t, y, tid in SERIES:
     if t: TMDB[("tv", tid)] = {"id": tid, "name": t, "original_name": t, "first_air_date": f"{y}-01-01", "poster_path": f"/p{tid}.jpg",
                                "backdrop_path": f"/b{tid}.jpg", "overview": f"Résumé de démonstration pour la série « {t} ».", "vote_average": 8.4, "genre_ids": [18], "popularity": 60}
 
+# MOCK_POSTERS=N : N films supplémentaires, chacun avec sa fiche TMDB et une vraie affiche servie par /img/
+# (avec un délai de 50 à 600 ms, comme un vrai réseau), pour compter les affiches réellement affichées.
+POSTERS = int(os.environ.get("MOCK_POSTERS") or 0)
+for i in range(POSTERS):
+    tid = 500000 + i
+    TMDB[("movie", tid)] = {"id": tid, "title": f"Film Démo {i:04d}", "original_title": f"Film Démo {i:04d}", "release_date": f"{1990 + i % 35}-03-01",
+                            "poster_path": f"/p{tid}.jpg", "backdrop_path": f"/b{tid}.jpg", "overview": "Résumé de démonstration.",
+                            "vote_average": 6.5, "genre_ids": [18], "popularity": 20, "runtime": 110, "vote_count": 100}
+import unicodedata as _ud
+EXACT = {re.sub(r"[^a-z0-9]", "", "".join(c for c in _ud.normalize("NFKD", d["title"].lower()) if not _ud.combining(c))): d
+         for (k, _), d in TMDB.items() if k == "movie" and d["id"] >= 500000}
+_PNG = {}
+def poster_png(name):
+    import zlib, struct, hashlib
+    if name in _PNG: return _PNG[name]
+    w, h = 120, 180
+    c = hashlib.md5(name.encode()).digest()[:3]
+    raw = b"".join(b"\x00" + bytes(c) * w for _ in range(h))
+    ch = lambda t, d: struct.pack(">I", len(d)) + t + d + struct.pack(">I", zlib.crc32(t + d) & 0xffffffff)
+    png = b"\x89PNG\r\n\x1a\n" + ch(b"IHDR", struct.pack(">IIBBBBB", w, h, 8, 2, 0, 0, 0)) + ch(b"IDAT", zlib.compress(raw)) + ch(b"IEND", b"")
+    _PNG[name] = png
+    return png
+
 class H(BaseHTTPRequestHandler):
     def log_message(self, *a): pass
     def j(self, o):
@@ -70,6 +93,14 @@ class H(BaseHTTPRequestHandler):
         u = urllib.parse.urlparse(self.path); q = {k: v[0] for k, v in urllib.parse.parse_qs(u.query).items()}
         if u.path.startswith("/3/"):
             return self.tmdb(u.path[2:], q)
+        if u.path.startswith("/img/"):
+            import random
+            time.sleep(random.uniform(0.05, 0.6))
+            d = poster_png(u.path.rsplit("/", 1)[-1])
+            self.send_response(200); self.send_header("Content-Type", "image/png"); self.send_header("Content-Length", str(len(d))); self.end_headers()
+            try: self.wfile.write(d)
+            except Exception: pass
+            return
         if u.path.endswith("/searchteams.php"):
             t = q.get("t", "")
             return self.j({"teams": [{"strTeam": t, "strBadge": "http://127.0.0.1:8799/badge/" + urllib.parse.quote(t) + ".png"}]} if t in ("PSG", "Bayern Munich") else {"teams": None})
@@ -93,6 +124,7 @@ class H(BaseHTTPRequestHandler):
         now = int(time.time())
         if not a:
             return self.j({"user_info": {"auth": 1, "status": "Active", "exp_date": str(now + 86400 * 200), "max_connections": "2", "allowed_output_formats": ["ts", "m3u8"]}, "server_info": {"timezone": "Europe/Paris"}})
+        if a == "get_vod_categories" and POSTERS: return self.j([{"category_id": str(10 + c), "category_name": f"Films | Catégorie {c + 1}"} for c in range(12)])
         if a == "get_vod_categories": return self.j([{"category_id": "10", "category_name": "Films | Nouveautés"}, {"category_id": "11", "category_name": "Films | 4K UHD"}, {"category_id": "12", "category_name": "Films | Classiques"}])
         if a == "get_vod_streams" and os.environ.get("MOCK_BIG"):
             import random; rnd = random.Random(1); out = []
@@ -101,6 +133,10 @@ class H(BaseHTTPRequestHandler):
                 t = " ".join(rnd.choice(words) for _ in range(rnd.randint(2,4)))
                 q = rnd.choice(["4K HDR", "1080p", "FHD MULTI", "720p", "DV 4K", ""])
                 out.append({"stream_id": 50000+i, "name": f"|FR| {t} ({rnd.randint(1960,2025)}) {q}", "stream_icon": "", "added": str(now-i*60), "category_id": str(10+i%3), "container_extension": "mkv", "rating": "6.5"})
+            return self.j(out)
+        if a == "get_vod_streams" and POSTERS:
+            out = [{"stream_id": 60000 + i, "name": f"|FR| Film Démo {i:04d} ({1990 + i % 35}) 1080p", "stream_icon": "", "added": str(now - i * 60),
+                    "category_id": str(10 + i % 12), "container_extension": "mkv", "rating": "6.5"} for i in range(POSTERS)]
             return self.j(out)
         if a == "get_vod_streams":
             out = []
@@ -187,6 +223,9 @@ class H(BaseHTTPRequestHandler):
         except Exception: pass
 
     def tmdb(self, path, q):
+        if POSTERS:
+            import random
+            time.sleep(random.uniform(0.08, 0.25))   # délai d'un vrai TMDB
         m = re.match(r"/(movie|tv)/(\d+)$", path)
         if m:
             d = TMDB.get((m.group(1), int(m.group(2))))
@@ -206,8 +245,11 @@ class H(BaseHTTPRequestHandler):
             import unicodedata
             n = lambda s: re.sub(r"[^a-z0-9]", "", "".join(c for c in unicodedata.normalize("NFKD", s.lower()) if not unicodedata.combining(c)))
             qq = n(q.get("query", ""))
+            if POSTERS and m.group(1) == "movie" and qq in EXACT:
+                return self.j({"results": [EXACT[qq]]})
             res = [d for (k, _), d in TMDB.items() if k == m.group(1) and (qq in n(d.get("title") or d.get("name")) or n(d.get("title") or d.get("name")) in qq or qq[:5] == n(d.get("title") or d.get("name"))[:5])]
-            return self.j({"results": res})
+            res.sort(key=lambda d: n(d.get("title") or d.get("name")) != qq)   # titre exact d'abord
+            return self.j({"results": res[:20]})
         if path == "/search/person":
             if "capr" in q.get("query", "").lower() or "nolan" in q.get("query", "").lower():
                 nolan = "nolan" in q.get("query", "").lower()
@@ -223,7 +265,7 @@ class H(BaseHTTPRequestHandler):
         if m:
             kind = m.group(2) or m.group(3) or m.group(4)
             page = int(q.get("page", 1))
-            vals = [d for (k, _), d in TMDB.items() if k == kind]
+            vals = [d for (k, _), d in TMDB.items() if k == kind][-60:]
             import random
             rnd = random.Random(path + str(sorted(q.items())))
             rnd.shuffle(vals)

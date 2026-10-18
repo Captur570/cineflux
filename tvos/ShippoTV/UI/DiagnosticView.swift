@@ -21,7 +21,7 @@ struct DiagnosticView: View {
                                 .foregroundStyle(l.2 == nil ? Theme.muted : l.2! ? Color.green : Theme.accent2)
                                 .font(.system(size: 26))
                             Text(l.0).font(.system(size: 24, weight: .bold)).frame(width: 330, alignment: .leading)
-                            Text(l.1).font(.system(size: 22, design: .monospaced)).lineLimit(4)
+                            Text(l.1).font(.system(size: 22, design: .monospaced)).lineLimit(6)
                         }
                     }
                 }
@@ -89,7 +89,10 @@ struct DiagnosticView: View {
             let devs = (s["devices"] as? [[String: Any]])?.compactMap { $0["name"] as? String } ?? []
             if !devs.isEmpty { add("Appareils du groupe", devs.joined(separator: ", ")) }
         }
+        add("Affiches à l'écran", ImageStats.shared.summary)
+        add("Fiches TMDB", model.metaSummary)
         add("Dernière association", model.lastJoin ?? "aucune depuis le lancement")
+        if !model.joinTrace.isEmpty { add("Suivi de l'association", model.joinTrace.suffix(6).joined(separator: " | ")) }
         add("Dernière erreur d'affiches", model.lastMetaError ?? "aucune")
         add("Messages du moteur", model.lastEvents.isEmpty ? "aucun depuis le lancement" : model.lastEvents.suffix(5).joined(separator: " | "))
     }

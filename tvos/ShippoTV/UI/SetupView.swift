@@ -108,6 +108,7 @@ struct SetupView: View {
     @State private var code = ""
     @State private var joining = false
     @State private var error: String?
+    private static var autoJoined = false
 
     var body: some View {
         NavigationStack {
@@ -116,6 +117,11 @@ struct SetupView: View {
                     HStack(spacing: 18) {
                         Image("Logo").resizable().frame(width: 72, height: 72).clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                         Text("Bienvenue sur ShippoTV").font(.system(size: 60, weight: .heavy))
+                    }
+                    if !model.joinTrace.isEmpty { JoinTraceView(lines: model.joinTrace) }
+                    if let e = error {
+                        Label(e, systemImage: "exclamationmark.triangle.fill")
+                            .font(.system(size: 26, weight: .bold)).foregroundStyle(Theme.accent2)
                     }
                     PhoneSetupPanel { Task { await model.load() } }
                         .padding(40)
@@ -132,7 +138,6 @@ struct SetupView: View {
                                     .frame(width: 420)
                                 Button(joining ? "…" : "Valider") { Task { await join() } }.disabled(joining)
                             }
-                            if let e = error { Text(e).font(.system(size: 22, weight: .semibold)).foregroundStyle(Theme.accent2) }
                         }
                         .padding(36)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -152,20 +157,52 @@ struct SetupView: View {
             }
             .background(AmbientBackground())
         }
+        .task {
+            // essais GitHub : saisit le code fabriqué par le faux PC puis appuie sur « Valider », comme à la télécommande
+            guard let t = model.test, t.route == "join", let c = t.code, !Self.autoJoined else { return }
+            Self.autoJoined = true
+            try? await Task.sleep(nanoseconds: 4_000_000_000)
+            code = c
+            try? await Task.sleep(nanoseconds: 1_000_000_000)
+            await join()
+        }
     }
 
     private func join() async {
         joining = true
         defer { joining = false }
         error = nil
+        let c = code.trimmingCharacters(in: .whitespacesAndNewlines)
+        model.trace("Valider : code de \(c.count) caractères envoyé au moteur", start: true)
         do {
-            let raw = try await Engine.shared.data("/api/sync", ["action": "join", "code": code])
+            let raw = try await Engine.shared.data("/api/sync", ["action": "join", "code": c])
             model.lastJoin = String(decoding: raw.prefix(200), as: UTF8.self)
             let r = try JSONDecoder().decode(SyncStatus.self, from: raw)
+            model.trace("réponse : groupe \(r.in_group == true ? "rejoint" : "NON rejoint"), identifiants \(r.creds == true ? "reçus" : "non reçus"), erreur « \(r.error ?? "") »")
             if let e = r.error, !e.isEmpty { error = e; return }
             await model.load()
-            if model.phase == .setup { error = "Synchronisé : il reste à saisir vos identifiants IPTV (QR code ou saisie manuelle)." }
-        } catch { self.error = error.localizedDescription }
+            model.trace("fin : écran \(model.phase)")
+            if model.phase == .setup { model.trace("il reste à saisir les identifiants IPTV (code fait sans les identifiants)") }
+        } catch {
+            model.trace("ERREUR : \(error.localizedDescription)")
+            self.error = error.localizedDescription
+        }
+    }
+}
+
+/// Suivi de l'association, affiché en haut de l'écran de bienvenue (visible sans faire défiler).
+struct JoinTraceView: View {
+    let lines: [String]
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Suivi de l'association").font(.system(size: 22, weight: .heavy))
+            ForEach(Array(lines.suffix(8).enumerated()), id: \.offset) { _, l in
+                Text(l).font(.system(size: 20, design: .monospaced)).lineLimit(2)
+            }
+        }
+        .padding(24)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.black.opacity(0.55), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
     }
 }
 
