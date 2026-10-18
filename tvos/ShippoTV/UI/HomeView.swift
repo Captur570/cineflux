@@ -5,9 +5,10 @@ struct HomeView: View {
     @EnvironmentObject var model: AppModel
 
     var body: some View {
+        ScrollViewReader { proxy in
         ScrollView(.vertical) {
             LazyVStack(alignment: .leading, spacing: 30) {
-                if let f = model.featured { Hero(movie: f) }
+                if let f = model.featured { Hero(movie: f).id("top") }
                 if model.cfg?.has_tmdb != true { TMDBHint().padding(.horizontal, 80) }
                 let resume = model.resumeMovies
                 if !resume.isEmpty { ResumeRow(items: resume) }
@@ -16,15 +17,36 @@ struct HomeView: View {
                 PosterRow(title: "Ajoutés récemment", items: model.recentMovies, limit: 30)
                 ForEach(model.discover, id: \.self) { row in
                     let items = model.movies(for: row)
-                    if items.count >= 3 { PosterRow(title: row.title, items: items) }
+                    if items.count >= 3 { PosterRow(title: row.title, items: items).id("d:" + row.title) }
                 }
                 ForEach(model.categoryRows, id: \.id) { row in
-                    PosterRow(title: row.title, items: row.items)
+                    PosterRow(title: row.title, items: row.items).id("c:" + row.id)
                 }
             }
             .padding(.bottom, 80)
         }
         .scrollClipDisabled()
+        .task {
+            // essais GitHub : parcours de l'accueil comme à la télécommande (descente rangée par rangée, puis retour en haut)
+            guard model.test?.route == "scroll" else { return }
+            try? await Task.sleep(nanoseconds: 12_000_000_000)
+            let ids = model.discover.filter { model.movies(for: $0).count >= 3 }.map { "d:" + $0.title } + model.categoryRows.map { "c:" + $0.id }
+            for (i, id) in ids.enumerated() {
+                model.testMark = "[rangée \(i + 1)/\(ids.count)]"
+                withAnimation { proxy.scrollTo(id, anchor: .top) }
+                try? await Task.sleep(nanoseconds: 2_500_000_000)
+            }
+            model.testMark = "[retour en haut]"
+            withAnimation { proxy.scrollTo("top", anchor: .top) }
+            try? await Task.sleep(nanoseconds: 20_000_000_000)
+            for (i, id) in ids.prefix(4).enumerated() {
+                model.testMark = "[2e passage, rangée \(i + 1)]"
+                withAnimation { proxy.scrollTo(id, anchor: .top) }
+                try? await Task.sleep(nanoseconds: 5_000_000_000)
+            }
+            model.testMark = "[fin]"
+        }
+        }
     }
 }
 

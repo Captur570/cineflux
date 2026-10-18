@@ -56,21 +56,25 @@ def shots(udid, name, times):
 
 
 def journal(udid, name, since):
-    logs = sh("xcrun", "simctl", "spawn", udid, "log", "show", "--start", since, "--style", "compact",
+    # journal de l'essai écrit par l'appli dans ses Documents
+    box = sh("xcrun", "simctl", "get_app_container", udid, BUNDLE, "data", check=False).stdout.strip()
+    src = os.path.join(box, "Documents", "essai.txt")
+    txt = open(src).read() if box and os.path.exists(src) else "(pas de journal d'essai)"
+    logs = sh("xcrun", "simctl", "spawn", udid, "log", "show", "--last", "4m", "--style", "compact",
               "--predicate", 'process == "ShippoTV"', check=False).stdout
-    keep = [l for l in logs.splitlines() if any(x in l for x in ("[stats]", "[association]", "[diag]", "[moteur", "exception"))]
+    keep = [l for l in logs.splitlines() if any(x in l for x in ("[diag]", "[moteur", "exception"))]
     with open(os.path.join(OUT, f"{name}-journal.txt"), "w") as f:
-        f.write("\n".join(keep)[-150000:])
+        f.write(txt + "\n\n----- journal système -----\n" + "\n".join(keep)[-100000:])
 
 
 def stamp(udid):
-    return sh("xcrun", "simctl", "spawn", udid, "date", "+%Y-%m-%d %H:%M:%S", check=False).stdout.strip()
+    return ""
 
 
 def main():
     os.makedirs(OUT, exist_ok=True)
     sync = subprocess.Popen([sys.executable, os.path.join(HERE, "fakesync.py")])
-    mock = subprocess.Popen([sys.executable, os.path.join(ROOT, "ios", "ci", "mock.py")], env=dict(os.environ, MOCK_POSTERS="3000"))
+    mock = subprocess.Popen([sys.executable, os.path.join(ROOT, "ios", "ci", "mock.py")], env=dict(os.environ, MOCK_POSTERS="30000"))
     time.sleep(2)
     d = pick_tv()
     udid = d["udid"]
@@ -87,15 +91,15 @@ def main():
     fresh(udid)
     since = stamp(udid)
     launch(udid, dict(base, route="join", code=code, sync_url="http://127.0.0.1:8798", sync_key="test"))
-    shots(udid, "association", [3, 6, 8, 10, 12, 15, 18, 22, 28, 35, 45, 60])
+    shots(udid, "association", [3, 5, 6, 7, 8, 10, 14, 20, 30])
     journal(udid, "association", since)
 
     # 2. affiches : ancien affichage puis nouveau, chacun sur une installation neuve
     for mode in ("ancien", "nouveau"):
         fresh(udid)
         since = stamp(udid)
-        launch(udid, dict(base, route="home"), {"SHIPPO_IMG": "async"} if mode == "ancien" else None)
-        shots(udid, f"affiches-{mode}", [15, 30, 45, 60, 90])
+        launch(udid, dict(base, route="scroll"), {"SHIPPO_IMG": "async"} if mode == "ancien" else None)
+        shots(udid, f"affiches-{mode}", [20, 40, 60, 80, 100, 120, 150, 170])
         journal(udid, f"affiches-{mode}", since)
 
     pc.kill()

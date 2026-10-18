@@ -70,6 +70,9 @@ for i in range(POSTERS):
     TMDB[("movie", tid)] = {"id": tid, "title": f"Film Démo {i:04d}", "original_title": f"Film Démo {i:04d}", "release_date": f"{1990 + i % 35}-03-01",
                             "poster_path": f"/p{tid}.jpg", "backdrop_path": f"/b{tid}.jpg", "overview": "Résumé de démonstration.",
                             "vote_average": 6.5, "genre_ids": [18], "popularity": 20, "runtime": 110, "vote_count": 100}
+import unicodedata as _ud
+EXACT = {re.sub(r"[^a-z0-9]", "", "".join(c for c in _ud.normalize("NFKD", d["title"].lower()) if not _ud.combining(c))): d
+         for (k, _), d in TMDB.items() if k == "movie" and d["id"] >= 500000}
 _PNG = {}
 def poster_png(name):
     import zlib, struct, hashlib
@@ -121,6 +124,7 @@ class H(BaseHTTPRequestHandler):
         now = int(time.time())
         if not a:
             return self.j({"user_info": {"auth": 1, "status": "Active", "exp_date": str(now + 86400 * 200), "max_connections": "2", "allowed_output_formats": ["ts", "m3u8"]}, "server_info": {"timezone": "Europe/Paris"}})
+        if a == "get_vod_categories" and POSTERS: return self.j([{"category_id": str(10 + c), "category_name": f"Films | Catégorie {c + 1}"} for c in range(12)])
         if a == "get_vod_categories": return self.j([{"category_id": "10", "category_name": "Films | Nouveautés"}, {"category_id": "11", "category_name": "Films | 4K UHD"}, {"category_id": "12", "category_name": "Films | Classiques"}])
         if a == "get_vod_streams" and os.environ.get("MOCK_BIG"):
             import random; rnd = random.Random(1); out = []
@@ -132,7 +136,7 @@ class H(BaseHTTPRequestHandler):
             return self.j(out)
         if a == "get_vod_streams" and POSTERS:
             out = [{"stream_id": 60000 + i, "name": f"|FR| Film Démo {i:04d} ({1990 + i % 35}) 1080p", "stream_icon": "", "added": str(now - i * 60),
-                    "category_id": str(10 + i % 3), "container_extension": "mkv", "rating": "6.5"} for i in range(POSTERS)]
+                    "category_id": str(10 + i % 12), "container_extension": "mkv", "rating": "6.5"} for i in range(POSTERS)]
             return self.j(out)
         if a == "get_vod_streams":
             out = []
@@ -219,6 +223,9 @@ class H(BaseHTTPRequestHandler):
         except Exception: pass
 
     def tmdb(self, path, q):
+        if POSTERS:
+            import random
+            time.sleep(random.uniform(0.08, 0.25))   # délai d'un vrai TMDB
         m = re.match(r"/(movie|tv)/(\d+)$", path)
         if m:
             d = TMDB.get((m.group(1), int(m.group(2))))
@@ -238,6 +245,8 @@ class H(BaseHTTPRequestHandler):
             import unicodedata
             n = lambda s: re.sub(r"[^a-z0-9]", "", "".join(c for c in unicodedata.normalize("NFKD", s.lower()) if not unicodedata.combining(c)))
             qq = n(q.get("query", ""))
+            if POSTERS and m.group(1) == "movie" and qq in EXACT:
+                return self.j({"results": [EXACT[qq]]})
             res = [d for (k, _), d in TMDB.items() if k == m.group(1) and (qq in n(d.get("title") or d.get("name")) or n(d.get("title") or d.get("name")) in qq or qq[:5] == n(d.get("title") or d.get("name"))[:5])]
             res.sort(key=lambda d: n(d.get("title") or d.get("name")) != qq)   # titre exact d'abord
             return self.j({"results": res[:20]})

@@ -12,11 +12,23 @@ final class AppModel: ObservableObject {
     /// Suivi pas à pas de l'association (affiché sur l'écran de bienvenue et dans le Diagnostic).
     @Published var joinTrace: [String] = []
     private var joinT0: Date?
+    /// Essais GitHub : position actuelle du parcours automatique de l'accueil.
+    var testMark = ""
+    /// Essais GitHub : journal écrit dans Documents/essai.txt (lu par simctl, plus fiable que le journal système).
+    static func appendTestLog(_ line: String) {
+        guard let dir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else { return }
+        let url = dir.appendingPathComponent("essai.txt")
+        let data = Data((line + "\n").utf8)
+        if let h = try? FileHandle(forWritingTo: url) { h.seekToEndOfFile(); h.write(data); try? h.close() }
+        else { try? data.write(to: url) }
+    }
+
     func trace(_ s: String, start: Bool = false) {
         if start || joinT0 == nil { joinT0 = Date(); joinTrace = [] }
         let line = String(format: "%5.1f s  ", Date().timeIntervalSince(joinT0 ?? Date())) + s
         joinTrace.append(line)
         NSLog("[association] %@", line)
+        if test != nil { Self.appendTestLog("[association] " + line) }
     }
     @Published var cfg: Config?
     @Published var catalog: Catalog?
@@ -267,7 +279,9 @@ final class AppModel: ObservableObject {
         Task {
             while true {
                 try? await Task.sleep(nanoseconds: 5_000_000_000)
-                NSLog("[stats] %ds · %@ · %@ · phase %@", Int(Date().timeIntervalSince(t0)), ImageStats.shared.summary, metaSummary, "\(phase)")
+                let line = "\(Int(Date().timeIntervalSince(t0))) s · \(ImageStats.shared.summary) · \(metaSummary) · écran \(phase) \(testMark)"
+                NSLog("[stats] %@", line)
+                Self.appendTestLog(line)
             }
         }
     }
