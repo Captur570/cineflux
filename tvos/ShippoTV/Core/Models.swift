@@ -219,7 +219,8 @@ struct PhoneState: Codable {
 // MARK: - Images TMDB
 
 enum TMDBImage {
-    static let base = "https://image.tmdb.org/t/p/"
+    /// Essais GitHub : images servies par le faux TMDB local (img_base), sinon le vrai TMDB.
+    static let base = TestConfig.load()?.imgBase ?? "https://image.tmdb.org/t/p/"
     static func url(_ path: String?, size: String) -> URL? {
         guard let p = path, !p.isEmpty else { return nil }
         if p.hasPrefix("http") { return URL(string: p) }
