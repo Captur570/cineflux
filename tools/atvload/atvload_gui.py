@@ -232,7 +232,7 @@ class Api:
             else:
                 raise A.Fail(f"Action inconnue : {job}")
         except A.Fail as e:
-            result.update(ok=False, error=str(e), detail=self._io.error_lines())
+            result.update(ok=False, error=str(e), detail=self._io.error_lines(), session=bool(getattr(e, "session", False)))
             A.log_to_file("XX " + str(e))
         except Exception as e:  # erreur imprévue : on la montre plutôt que de figer la fenêtre
             result.update(ok=False, error=f"Erreur inattendue : {e}", detail=self._io.error_lines())

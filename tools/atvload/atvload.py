@@ -523,9 +523,16 @@ def apple_refused(out):
     return "-80045" in o or is_risk_block(out) or ("503" in o and ("developer" in o or "gsa" in o or "service unavailable" in o))
 
 
+def session_expired(out):
+    o = out.lower()
+    return "session has expired" in o or "please log in" in o or "error 1100" in o
+
+
 def explain_failure(out):
     o = out.lower()
-    if "-80045" in o or (apple_refused(out) and not is_risk_block(out)):
+    if session_expired(out):
+        warn("Session Apple expirée : reconnecte-toi (atvload login).")
+    elif "-80045" in o or (apple_refused(out) and not is_risk_block(out)):
         warn("Apple refuse l'identité de machine fournie par le serveur d'identification (erreur 503 / -80045). "
              "C'est le problème qui touche tous les outils de ce genre depuis mi-octobre 2026 : réessaie plus tard, "
              "pas plus de 2-3 fois par heure.")
@@ -540,7 +547,7 @@ def explain_failure(out):
              "     (révoquer un certificat désactive les apps signées avec lui sur tes autres appareils).")
     elif ("maximum" in o and "app" in o) or "3 apps" in o:
         warn("Limite du compte gratuit atteinte (3 apps actives par appareil). Supprime une app de l'Apple TV.")
-    elif "can't log-in" in o or "developersession" in o or "not logged" in o or "no account" in o:
+    elif session_expired(out) or "can't log-in" in o or "developersession" in o or "not logged" in o or "no account" in o:
         warn("Session Apple expirée ou absente : relance  atvload login")
     elif "not compatible" in o or ("platform" in o and "device" in o):
         warn("L'app n'est pas compatible avec l'Apple TV (elle doit être compilée pour tvOS).")
@@ -704,7 +711,8 @@ def sign_install(state, ipa, udid, dev, refresh=False, revoke=None):
     if code != 0 or "Installation complete" not in out:
         explain_failure(out)
         err = Fail("Échec de plumesign (détails ci-dessus, et dans " + str(LOG_FILE) + ").")
-        err.retryable = not apple_refused(out) and not is_anisette_error(out)
+        err.retryable = not apple_refused(out) and not is_anisette_error(out) and not session_expired(out)
+        err.session = session_expired(out)
         raise err
     return expiry
 

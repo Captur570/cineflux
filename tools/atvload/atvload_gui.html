@@ -340,6 +340,8 @@ pre.log.open { max-height: 230px; padding: 12px 28px; }
   let job = null;            // tâche en cours
   let jobWarnings = [];
   let pendingIpa = null;     // { path, preset }
+  let lastJob = null;        // dernière opération lancée (reprise automatique après reconnexion)
+  let resumeAfterLogin = null;
 
   const TITLES = {
     setup: 'Installation du moteur', pair: 'Appairage', login: 'Connexion à Apple', install: 'Installation',
@@ -480,6 +482,7 @@ pre.log.open { max-height: 230px; padding: 12px 28px; }
     const r = await api.start(name, params);
     if (!r.ok) { showProblem(r.error, []); return false; }
     job = name; jobWarnings = [];
+    if (name !== 'login') lastJob = { name, params };
     $('stateDot').className = 'state run';
     $('jobTitle').textContent = TITLES[name] || name;
     $('jobLine').textContent = '';
@@ -505,6 +508,16 @@ pre.log.open { max-height: 230px; padding: 12px 28px; }
     }
     if (name === 'pair') closeDlg('pairDlg');
     if (name === 'login') { res.ok ? closeDlg('loginDlg') : loginReset(); }
+    if (!res.ok && res.session && lastJob) {
+      resumeAfterLogin = lastJob;
+      $('probTitle').textContent = 'La session Apple a expiré : reconnecte-toi, l\'opération reprendra toute seule.';
+      $('probList').innerHTML = (res.detail || []).length ? `<li class="raw">Réponse d'Apple :<code>${res.detail.map(esc).join('\n')}</code></li>` : '';
+      $('probFix').innerHTML = `<button class="btn primary" data-act="login">Se reconnecter</button><button class="btn quiet" data-act="openLogPanel">Voir le détail</button><button class="btn quiet" data-act="hideProblem">Fermer</button>`;
+    }
+    if (name === 'login' && res.ok && resumeAfterLogin) {
+      const r = resumeAfterLogin; resumeAfterLogin = null;
+      setTimeout(() => start(r.name, r.params), 400);
+    }
     if (name === 'scan' && res.data) {
       const p = res.data.paired;
       $('jobLine').textContent = p.length ? p.map((d) => `${d.name} (${d.ip})`).join(', ') : 'Aucune Apple TV appairée visible';
