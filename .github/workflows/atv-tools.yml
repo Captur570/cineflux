@@ -112,11 +112,7 @@ jobs:
           $p = Start-Process dist\ATVLoad.exe -ArgumentList "list" -Wait -PassThru
           "ligne de commande : code $($p.ExitCode)"
           if ($p.ExitCode -ne 0) { exit 1 }
-          $g = Start-Process dist\ATVLoad.exe -PassThru
-          Start-Sleep -Seconds 12
-          if ($g.HasExited) { "la fenêtre s'est fermée (code $($g.ExitCode))"; Get-Content "$env:APPDATA\ATVLoad\atvload.log" -ErrorAction SilentlyContinue; exit 1 }
-          "fenêtre ouverte depuis 12 s : OK"
-          Stop-Process -Id $g.Id -Force
+          ./ci_check.ps1
           Get-Item dist\ATVLoad.exe | Format-List Name, Length
       - uses: actions/upload-artifact@v4
         with:
