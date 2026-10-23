@@ -38,6 +38,7 @@ struct RemoteImage: View {
     let url: URL?
     let title: String
     var showTitle = true
+    var fit = false
     @State private var image: UIImage?
     @State private var slot = UUID()
 
@@ -60,7 +61,11 @@ struct RemoteImage: View {
                     }
                 }
             } else if let img = image {
-                Image(uiImage: img).resizable().scaledToFill().transition(.opacity)
+                if fit {
+                    Image(uiImage: img).resizable().scaledToFit().padding(24).transition(.opacity)
+                } else {
+                    Image(uiImage: img).resizable().scaledToFill().transition(.opacity)
+                }
             }
         }
         .clipped()

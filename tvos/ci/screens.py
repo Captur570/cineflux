@@ -44,9 +44,12 @@ def main():
     sh("xcrun", "simctl", "install", udid, APP)
     base = {"server": "127.0.0.1:8799", "user": "demo", "pass": "demo", "tmdb_api": "http://127.0.0.1:8799/3", "tmdb_key": "testkey"}
     # « setup » d'abord : l'appli vient d'être installée, rien n'est configuré
-    for route, wait in (("setup", 25), ("home", 30), ("detail", 22), ("player", 26), ("subs", 22)):
+    routes = (("setup", 25), ("home", 30), ("detail", 22), ("player", 26), ("subs", 22),
+              ("series", 22), ("series_detail", 24), ("episode", 26), ("live", 24), ("live_play", 26), ("search", 22))
+    for route, wait in routes:
         sh("xcrun", "simctl", "terminate", udid, BUNDLE, check=False)
-        env = dict(os.environ, SIMCTL_CHILD_SHIPPO_TEST=json.dumps(dict(base, route=route)))
+        extra = {"search": "dune"} if route == "search" else {}
+        env = dict(os.environ, SIMCTL_CHILD_SHIPPO_TEST=json.dumps(dict(base, route=route, **extra)))
         r = sh("xcrun", "simctl", "launch", udid, BUNDLE, env=env, check=False)
         print(r.stdout, r.stderr, flush=True)
         time.sleep(wait)
@@ -56,7 +59,7 @@ def main():
     with open(os.path.join(OUT, "journal.txt"), "w") as f:
         f.write(logs[-200000:])
     with open(os.path.join(OUT, "journal-moteur.txt"), "w") as f:
-        f.write("\n".join(l for l in logs.splitlines() if "[moteur" in l)[-100000:])
+        f.write("\n".join(l for l in logs.splitlines() if "[moteur" in l or "[direct]" in l)[-100000:])
     mock.terminate()
 
 

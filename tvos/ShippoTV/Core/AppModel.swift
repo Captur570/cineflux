@@ -44,6 +44,20 @@ final class AppModel: ObservableObject {
     private var movieIdx: [String: Movie] = [:]
     private var pendingMeta = Set<String>()
 
+    // Séries, direct, « À suivre »
+    @Published var upNext: [UpNext] = []
+    @Published var seriesInfo: [String: SeriesInfo] = [:]
+    @Published var liveNow: [String: NowProg] = [:]
+    @Published var epg: [String: [EpgItem]] = [:]
+    @Published var seriesDiscover: [DiscoverRow] = []
+    var seriesIdx: [String: Series] = [:]
+    var liveIdx: [String: Channel] = [:]
+    var recentSeries: [Series] = []
+    var seriesRows: [SeriesRow] = []
+    var liveGroups: [LiveGroup] = []
+    var epgAsked = Set<String>()
+    var searchIndex: [(norm: String, kind: Int, key: String)] = []
+
     var profileId: String {
         get { UserDefaults.standard.string(forKey: "profile") ?? "" }
         set { UserDefaults.standard.set(newValue, forKey: "profile"); Engine.shared.profile = newValue }
@@ -103,6 +117,7 @@ final class AppModel: ObservableObject {
 
     func loadCatalog() async throws {
         let cat: Catalog = try await Engine.shared.call("/api/catalog")
+        buildLibrary(cat)
         catalog = cat
         movieIdx = Dictionary(cat.movies.map { ($0.k, $0) }, uniquingKeysWith: { a, _ in a })
         meta.merge(cat.meta ?? [:]) { a, _ in a }
@@ -110,6 +125,7 @@ final class AppModel: ObservableObject {
             await loadDiscover()
             prefetchPosters()
         }
+        Task { await loadUpNext() }
         prefetchPosters()
         startEventLoop()
     }
@@ -138,6 +154,10 @@ final class AppModel: ObservableObject {
         for row in discover { add(Array(movies(for: row).prefix(20))) }
         for row in categoryRows { add(Array(row.items.prefix(16))) }
         want(list, front: false)
+        // séries de l'accueil (à suivre, Ma liste, récentes)
+        var sl = upNext.compactMap { seriesIdx[$0.key] } + favSeries + Array(recentSeries.prefix(20))
+        for row in seriesDiscover.prefix(2) { sl += Array(series(for: row).prefix(16)) }
+        want(series: sl, front: false)
     }
 
     /// Changements venus des autres appareils (synchronisation) : réglages relus toutes les 30 s.
@@ -177,6 +197,7 @@ final class AppModel: ObservableObject {
                 await reloadConfig()
             case "remote_stop":
                 PlayerPresenter.closeIfOpen()
+                LivePlayer.closeIfOpen()
                 if let m = e.msg, !m.isEmpty { toast = m }
             default:
                 break
@@ -191,8 +212,10 @@ final class AppModel: ObservableObject {
     }
 
     private func loadDiscover() async {
-        guard let d: Discover = try? await Engine.shared.call("/api/discover?kind=movie") else { return }
-        discover = d.rows.filter { ($0.kind ?? "movie") == "movie" }
+        if let d: Discover = try? await Engine.shared.call("/api/discover?kind=movie") {
+            discover = d.rows.filter { ($0.kind ?? "movie") == "movie" }
+        }
+        await loadSeriesDiscover()
     }
 
     // MARK: - Catalogue
@@ -206,21 +229,10 @@ final class AppModel: ObservableObject {
     struct CategoryRow: Identifiable { let id: String; let title: String; let items: [Movie] }
     struct ResumeEntry: Identifiable { let movie: Movie; let progress: WatchProgress; var id: String { movie.k } }
 
-    var categoryRows: [CategoryRow] {
-        guard let cat = catalog else { return [] }
-        let names = cat.cats?.movies ?? [:]
-        let order = cat.cats?.order?.movies ?? Array(names.keys).sorted()
-        var byCat: [String: [Movie]] = [:]
-        for m in cat.movies { for c in m.c?.items ?? [] { byCat[c, default: []].append(m) } }
-        return order.compactMap { id in
-            guard let items = byCat[id], !items.isEmpty else { return nil }
-            return CategoryRow(id: id, title: names[id] ?? "Films", items: items.sorted { ($0.a ?? 0) > ($1.a ?? 0) })
-        }
-    }
-
-    var recentMovies: [Movie] {
-        (catalog?.movies ?? []).sorted { ($0.a ?? 0) > ($1.a ?? 0) }
-    }
+    // Rangées calculées une seule fois par chargement du catalogue (30 000 films : les recalculer à chaque
+    // affichage ralentissait l'accueil à chaque fiche reçue).
+    var categoryRows: [CategoryRow] = []
+    var recentMovies: [Movie] = []
 
     /// Films commencés et pas terminés, du plus récent au plus ancien.
     var resumeMovies: [ResumeEntry] {
@@ -238,8 +250,7 @@ final class AppModel: ObservableObject {
     func isFav(_ m: Movie) -> Bool { (cfg?.favs ?? []).contains("movie:" + m.k) }
 
     func toggleFav(_ m: Movie) async {
-        _ = try? await Engine.shared.data("/api/fav", ["kind": "movie", "key": m.k, "on": !isFav(m)])
-        await reloadConfig()
+        await toggleFav("movie", m.k)
     }
 
     func progress(_ m: Movie) -> WatchProgress? {
@@ -263,7 +274,9 @@ final class AppModel: ObservableObject {
     /// Fiches TMDB demandées par lots de 24, 2 lots à la fois au plus (comme sur PC, télé et iPad) :
     /// lancer tous les lots d'un coup déclenchait la limite de TMDB et des affiches manquaient.
     /// Les rangées visibles passent devant ; une affiche manquée sera redemandée (2 essais).
-    private var metaQueue: [Movie] = []
+    /// Une fiche à demander : film (« m:clé ») ou série (« t:clé »).
+    struct MetaReq { let mk: String; let body: [String: Any] }
+    private var metaQueue: [MetaReq] = []
     private var metaInflight = 0
     private var metaMiss: [String: Int] = [:]
     private var metaAsked = 0, metaFound = 0, metaNone = 0, metaErrors = 0
@@ -287,10 +300,18 @@ final class AppModel: ObservableObject {
     }
 
     func want(_ items: [Movie], front: Bool = true) {
+        enqueue(items.map { MetaReq(mk: "m:" + $0.k, body: ["kind": "movie", "key": $0.k, "title": $0.t, "year": $0.y as Any? ?? NSNull(), "tmdb": $0.tm?.json ?? NSNull()]) }, front: front)
+    }
+
+    func want(series items: [Series], front: Bool = true) {
+        enqueue(items.map { MetaReq(mk: "t:" + $0.k, body: ["kind": "series", "key": $0.k, "title": $0.t, "year": $0.y as Any? ?? NSNull(), "tmdb": $0.tm?.json ?? NSNull()]) }, front: front)
+    }
+
+    private func enqueue(_ reqs: [MetaReq], front: Bool) {
         guard cfg?.has_tmdb == true else { return }
-        let missing = items.filter { meta["m:" + $0.k] == nil && !pendingMeta.contains($0.k) && (metaMiss[$0.k] ?? 0) < 2 }
+        let missing = reqs.filter { meta[$0.mk] == nil && !pendingMeta.contains($0.mk) && (metaMiss[$0.mk] ?? 0) < 2 }
         guard !missing.isEmpty else { return }
-        missing.forEach { pendingMeta.insert($0.k) }
+        missing.forEach { pendingMeta.insert($0.mk) }
         if front { metaQueue.insert(contentsOf: missing, at: 0) } else { metaQueue.append(contentsOf: missing) }
         pumpMeta()
     }
@@ -300,26 +321,23 @@ final class AppModel: ObservableObject {
             let batch = Array(metaQueue.prefix(24))
             metaQueue.removeFirst(batch.count)
             metaInflight += 1
-            let body: [[String: Any]] = batch.map {
-                ["kind": "movie", "key": $0.k, "title": $0.t, "year": $0.y as Any? ?? NSNull(), "tmdb": $0.tm?.json ?? NSNull()]
-            }
             metaAsked += batch.count
             Task {
                 defer { metaInflight -= 1; pumpMeta() }
                 let res: [String: Meta?]
                 do {
-                    let d = try await Engine.shared.data("/api/enrich", ["items": body])
+                    let d = try await Engine.shared.data("/api/enrich", ["items": batch.map(\.body)])
                     res = try JSONDecoder().decode([String: Meta?].self, from: d)
                 } catch {
                     lastMetaError = error.localizedDescription
                     metaErrors += 1
-                    batch.forEach { pendingMeta.remove($0.k); metaMiss[$0.k, default: 0] += 1 }
+                    batch.forEach { pendingMeta.remove($0.mk); metaMiss[$0.mk, default: 0] += 1 }
                     return
                 }
                 var add: [String: Meta] = [:]
-                for m in batch {
-                    if let v = res["m:" + m.k] ?? nil { add["m:" + m.k] = v; metaFound += 1 }
-                    else { metaNone += 1; pendingMeta.remove(m.k); metaMiss[m.k, default: 0] += 1 }   // manquée : pourra être redemandée
+                for r in batch {
+                    if let v = res[r.mk] ?? nil { add[r.mk] = v; metaFound += 1 }
+                    else { metaNone += 1; pendingMeta.remove(r.mk); metaMiss[r.mk, default: 0] += 1 }   // manquée : pourra être redemandée
                 }
                 if !add.isEmpty { meta.merge(add) { _, b in b } }
             }
@@ -409,9 +427,10 @@ struct TestConfig: Decodable {
     let syncUrl: String?
     let syncKey: String?
     let code: String?
+    let searchQuery: String?
 
     enum CodingKeys: String, CodingKey {
-        case server, user, pass, route, code, tmdbApi = "tmdb_api", tmdbKey = "tmdb_key", imgBase = "img_base", syncUrl = "sync_url", syncKey = "sync_key"
+        case server, user, pass, route, code, searchQuery = "search", tmdbApi = "tmdb_api", tmdbKey = "tmdb_key", imgBase = "img_base", syncUrl = "sync_url", syncKey = "sync_key"
     }
 
     static func load() -> TestConfig? {

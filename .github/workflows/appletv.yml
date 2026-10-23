@@ -67,8 +67,18 @@ jobs:
       - name: Captures d'écran
         continue-on-error: true
         run: python3 tvos/ci/screens.py
+      - name: Captures d'un essai (branche autre que main, rien n'est publié dans la bêta)
+        if: always() && github.ref != 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG=appletv-repro
+          gh release view $TAG >/dev/null 2>&1 || gh release create $TAG --prerelease --target "${{ github.sha }}" --title "Apple TV - essais" --notes "Résultats d'essais (pas une version à installer)."
+          mkdir -p essai && cp tvos/ci/out/* essai/ 2>/dev/null || true
+          for f in tvos/build-dev.log tvos/build-sim.log; do [ -f "$f" ] && grep -E "error|BUILD" "$f" | tail -200 > "essai/$(basename "$f" .log)-resume.txt"; done
+          cd essai && zip -q ../essai.zip * && cd .. && gh release upload $TAG essai.zip --clobber
       - name: Publication (ShippoTV-AppleTV.ipa, captures et journaux)
-        if: always()
+        if: always() && github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |

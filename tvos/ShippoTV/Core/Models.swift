@@ -65,9 +65,13 @@ struct Series: Codable, Hashable, Identifiable {
     let t: String
     let y: Int?
     let p: String?
+    let bd: String?
     let c: FlexList?
     let a: Double?
     let r: Double?
+    let tm: FlexID?
+    let pl: String?
+    let g: String?
     let s: [SeriesSource]
     var id: String { k }
 }
@@ -84,7 +88,76 @@ struct Channel: Codable, Hashable, Identifiable {
     let p: String?
     let c: FlexList?
     let s: [LiveSource]
+    let num: Int?
+    let loc: Int?
     var id: String { k }
+}
+
+// MARK: - Séries (saisons et épisodes, chargés à l'ouverture de la fiche)
+
+struct Episode: Codable, Hashable, Identifiable {
+    let id: FlexID
+    let n: Int
+    let t: String
+    let ext: String?
+    let img: String?
+    let plot: String?
+    let dur: String?
+}
+
+struct SeriesExtra: Codable, Hashable {
+    let plot: String?
+    let cast: String?
+    let genre: String?
+    let director: String?
+    let rating: FlexID?
+    let backdrop: String?
+}
+
+struct SeriesInfo: Codable {
+    let seasons: [String]
+    let episodes: [String: [Episode]]
+    let info: SeriesExtra?
+}
+
+/// Épisode tel qu'enregistré dans la progression (synchronisée avec les autres appareils).
+struct EpisodeRef: Codable, Hashable {
+    let id: FlexID?
+    let ext: String?
+    let sid: FlexID?
+}
+
+/// « À suivre » : prochain épisode d'une série regardée (calculé par le moteur, comme sur PC et télé).
+struct UpNext: Codable, Hashable, Identifiable {
+    let key: String
+    let label: String?
+    let sub: String?
+    let pid: String
+    let ep: EpisodeRef
+    let img: String?
+    let pos: Double?
+    let dur: Double?
+    let next: Bool?
+    var id: String { pid }
+}
+
+// MARK: - Direct
+
+struct NowProg: Codable, Hashable {
+    let t: String?
+    let s: Double?
+    let e: Double?
+}
+
+struct LiveNow: Codable {
+    let now: [String: NowProg]?
+}
+
+struct EpgItem: Codable, Hashable {
+    let title: String
+    let desc: String?
+    let start: Double
+    let end: Double
 }
 
 struct CatOrder: Codable, Hashable {
@@ -140,6 +213,7 @@ struct WatchProgress: Codable, Hashable {
     let kind: String?
     let key: String?
     let label: String?
+    let ep: EpisodeRef?
     let pos: Double?
     let dur: Double?
     let vid: FlexID?
@@ -188,6 +262,7 @@ struct MovieInfo: Codable {
 struct StreamInfo: Codable {
     let url: String
     let ext: String?
+    let live: Bool?
 }
 
 struct PairCode: Codable {

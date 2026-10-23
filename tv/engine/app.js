@@ -1129,7 +1129,9 @@
     const kind = s.type;
     if (kind === 'replay') return { url: xt.timeshiftUrl(s.id, s.start, s.dur || 60), mode: 'native', live: false };
     if (kind === 'live') {
-      const fmt = CONFIG.data.live_format === 'm3u8' && xt.output_formats.includes('m3u8') ? 'm3u8' : 'ts';
+      // s.fmt : format souhaité par l'appareil (l'Apple TV demande le HLS pour son lecteur natif)
+      const want = s.fmt || CONFIG.data.live_format;
+      const fmt = want === 'm3u8' && xt.output_formats.includes('m3u8') ? 'm3u8' : 'ts';
       return { url: xt.streamUrl('live', s.id, null, fmt), mode: 'native', live: true };
     }
     return { url: xt.streamUrl(kind, s.id, s.ext), mode: 'native', ext: (s.ext || '').toLowerCase() };
