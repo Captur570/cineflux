@@ -104,16 +104,19 @@ def ns(**kw):
 class Api:
     """Fonctions appelées par la page (window.pywebview.api.*)."""
 
+    # Tous les attributs commencent par « _ » : pywebview expose à la page chaque attribut public de
+    # l'Api, en descendant dans les objets (fenêtre, verrous…). Avec self.window, il parcourait toute la
+    # fenêtre au démarrage et l'interface se figeait (« Ne répond pas »).
     def __init__(self):
-        self.window = None
-        self.io = GuiIO(self)
-        A.IO = self.io
-        self.job = None
-        self.lock = threading.Lock()
+        self._window = None
+        self._io = GuiIO(self)
+        A.IO = self._io
+        self._job = None
+        self._lock = threading.Lock()
 
     # ------------------------------------------------------------- vers la page
     def emit(self, kind, data=None):
-        w = self.window
+        w = self._window
         if not w:
             return
         try:
@@ -122,6 +125,11 @@ class Api:
             pass
 
     # ------------------------------------------------------------- état
+    def ready(self):
+        """Appelée par la page une fois chargée (preuve que la page et Python se parlent)."""
+        A.log_to_file(f"interface prête (ATVLoad {VERSION})")
+        return True
+
     def status(self):
         st = A.load_state()
         try:
@@ -149,7 +157,7 @@ class Api:
             "apps": apps,
             "schedule": A.task_exists(),
             "windows": os.name == "nt",
-            "busy": self.job,
+            "busy": self._job,
             "presets": {k: {"name": v["name"], "desc": v["desc"]} for k, v in PRESETS.items()},
             "log_file": str(A.LOG_FILE),
         }
@@ -165,13 +173,13 @@ class Api:
     # ------------------------------------------------------------- tâches
     def start(self, job, params=None):
         params = params or {}
-        with self.lock:
-            if self.job:
+        with self._lock:
+            if self._job:
                 return {"ok": False, "error": "Une opération est déjà en cours."}
-            self.job = job
-        self.io.new_job()
+            self._job = job
+        self._io.new_job()
         if job == "login":
-            self.io.password = params.get("password") or ""
+            self._io.password = params.get("password") or ""
         threading.Thread(target=self._run, args=(job, params), daemon=True).start()
         return {"ok": True}
 
@@ -212,8 +220,8 @@ class Api:
             result.update(ok=False, error=f"Erreur inattendue : {e}")
             A.log_to_file(traceback.format_exc())
         finally:
-            self.io.password = None
-            self.job = None
+            self._io.password = None
+            self._job = None
         self.emit("done", result)
         self.emit("status", self.status())
 
@@ -284,12 +292,12 @@ class Api:
 
     # ------------------------------------------------------------- réponses de la page
     def answer(self, value):
-        self.io.answers.put("" if value is None else str(value))
+        self._io.answers.put("" if value is None else str(value))
         return True
 
     def cancel(self):
         """Annule la question en cours et arrête plumesign."""
-        self.io.answers.put(None)
+        self._io.answers.put(None)
         p = A.CURRENT.get("proc")
         if p and p.poll() is None:
             try:
@@ -312,7 +320,7 @@ class Api:
     def pick_ipa(self):
         import webview
         kind = getattr(getattr(webview, "FileDialog", None), "OPEN", None) or webview.OPEN_DIALOG
-        r = self.window.create_file_dialog(kind, allow_multiple=False, file_types=("Apps tvOS (*.ipa)", "Tous les fichiers (*.*)"))
+        r = self._window.create_file_dialog(kind, allow_multiple=False, file_types=("Apps tvOS (*.ipa)", "Tous les fichiers (*.*)"))
         if not r:
             return None
         return r[0] if isinstance(r, (list, tuple)) else r
@@ -349,7 +357,7 @@ def run_gui():
         "ATVLoad", url=str(UI_FILE), js_api=api, width=1100, height=760, min_size=(900, 620),
         background_color="#0B0B0F",
     )
-    api.window = win
+    api._window = win
 
     def on_ready():
         # glisser-déposer d'une IPA : le chemin complet n'est disponible que côté Python (pywebview ≥ 5)

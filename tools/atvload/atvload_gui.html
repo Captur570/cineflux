@@ -752,6 +752,7 @@ pre.log.open { max-height: 230px; padding: 12px 28px; }
   // ------------------------------------------------------------------ démarrage
   async function boot(a) {
     api = a;
+    api.ready();
     await refresh();
     if (S.busy) { job = S.busy; $('stateDot').className = 'state run'; $('jobTitle').textContent = TITLES[job] || job; }
     const tail = await api.read_log(200);
