@@ -17,6 +17,9 @@ struct PosterCard: View {
             .frame(width: width, height: width * 1.5)
         }
         .buttonStyle(.card)
+        .contextMenu {
+            Button(model.isFav(movie) ? "Retirer de Ma liste" : "Ajouter à Ma liste") { Task { await model.toggleFav(movie) } }
+        }
         .accessibilityLabel(model.title(movie))
     }
 }

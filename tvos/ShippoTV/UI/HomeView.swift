@@ -12,9 +12,18 @@ struct HomeView: View {
                 if model.cfg?.has_tmdb != true { TMDBHint().padding(.horizontal, 80) }
                 let resume = model.resumeMovies
                 if !resume.isEmpty { ResumeRow(items: resume) }
+                if !model.upNext.isEmpty { UpNextRow(items: model.upNext).id("upnext") }
                 let favs = model.favMovies
                 if !favs.isEmpty { PosterRow(title: "Ma liste", items: favs) }
+                let favS = model.favSeries
+                if !favS.isEmpty { SeriesRowView(title: "Mes séries", items: favS) }
+                let favC = model.favChannels
+                if !favC.isEmpty { ChannelRow(title: "Mes chaînes", items: favC) }
                 PosterRow(title: "Ajoutés récemment", items: model.recentMovies, limit: 30)
+                if !model.recentSeries.isEmpty { SeriesRowView(title: "Séries ajoutées récemment", items: model.recentSeries, limit: 30) }
+                if let trend = model.seriesDiscover.first, model.series(for: trend).count >= 3 {
+                    SeriesRowView(title: trend.title, items: model.series(for: trend))
+                }
                 ForEach(model.discover, id: \.self) { row in
                     let items = model.movies(for: row)
                     if items.count >= 3 { PosterRow(title: row.title, items: items).id("d:" + row.title) }
@@ -133,5 +142,26 @@ struct MoviesView: View {
             .padding(.bottom, 80)
         }
         .scrollClipDisabled()
+    }
+}
+
+
+/// Rangée de chaînes (Ma liste, recherche).
+struct ChannelRow: View {
+    let title: String
+    let items: [Channel]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            Text(title).font(.system(size: 34, weight: .bold)).padding(.leading, 80)
+            ScrollView(.horizontal, showsIndicators: false) {
+                LazyHStack(alignment: .top, spacing: 44) {
+                    ForEach(items) { ChannelCard(channel: $0) }
+                }
+                .padding(.horizontal, 80)
+                .padding(.vertical, 30)
+            }
+            .scrollClipDisabled()
+        }
     }
 }

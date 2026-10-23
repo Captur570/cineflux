@@ -173,19 +173,31 @@ struct FailedView: View {
 struct MainTabs: View {
     @EnvironmentObject var model: AppModel
     @State private var homePath = NavigationPath()
+    @State private var seriesPath = NavigationPath()
+    @State private var tab = "home"
 
     var body: some View {
-        TabView {
+        TabView(selection: $tab) {
             NavigationStack(path: $homePath) {
-                HomeView().navigationDestination(for: Movie.self) { MovieDetailView(movie: $0) }
+                HomeView().withDetails()
             }
-            .tabItem { Text("Accueil") }
+            .tabItem { Text("Accueil") }.tag("home")
             NavigationStack {
-                MoviesView().navigationDestination(for: Movie.self) { MovieDetailView(movie: $0) }
+                MoviesView().withDetails()
             }
-            .tabItem { Text("Films") }
+            .tabItem { Text("Films") }.tag("movies")
+            NavigationStack(path: $seriesPath) {
+                SeriesView().withDetails()
+            }
+            .tabItem { Text("Séries") }.tag("series")
+            NavigationStack { LiveView() }
+                .tabItem { Text("Direct") }.tag("live")
+            NavigationStack {
+                SearchView().withDetails()
+            }
+            .tabItem { Image(systemName: "magnifyingglass") }.tag("search")
             NavigationStack { SettingsView() }
-                .tabItem { Text("Réglages") }
+                .tabItem { Text("Réglages") }.tag("settings")
         }
         .background(AmbientBackground())
         .task { await testRoute() }
@@ -200,7 +212,31 @@ struct MainTabs: View {
         case "detail": if let d = dune { homePath.append(d) }
         case "player": if let d = dune { await model.play(d) }
         case "subs": if let s = model.test?.server { model.playURL("http://" + s.replacingOccurrences(of: "http://", with: "") + "/scope.mkv", title: "Test sous-titres") }
+        case "series": tab = "series"
+        case "series_detail":
+            tab = "series"
+            if let x = model.catalog?.series.first(where: { $0.t.lowercased().contains("breaking") }) ?? model.catalog?.series.first { seriesPath.append(x) }
+        case "episode":
+            if let x = model.catalog?.series.first(where: { $0.t.lowercased().contains("breaking") }) ?? model.catalog?.series.first,
+               let r = await model.loadSeries(x) {
+                let list = model.episodes(r.1, sid: r.0)
+                if let e = list.dropFirst().first { await model.playEpisode(x, e, queue: Array(list.dropFirst(2))) }
+            }
+        case "live": tab = "live"
+        case "live_play":
+            tab = "live"
+            if let ch = model.catalog?.live.first { await model.playChannel(ch) }
+        case "search": tab = "search"
         default: break
         }
+    }
+}
+
+
+extension View {
+    /// Fiches film et série ouvrables depuis n'importe quel onglet.
+    func withDetails() -> some View {
+        navigationDestination(for: Movie.self) { MovieDetailView(movie: $0) }
+            .navigationDestination(for: Series.self) { SeriesDetailView(series: $0) }
     }
 }
