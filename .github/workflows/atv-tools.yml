@@ -88,6 +88,41 @@ jobs:
           name: hellotv
           path: tools/hellotv/HelloTV.ipa
 
+  # Interface graphique : ATVLoad.exe (Python + pywebview empaquetés, aucune installation nécessaire)
+  atvload-exe:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Dépendances
+        run: python -m pip install pywebview zeroconf pyinstaller
+      - name: Fabrication de ATVLoad.exe
+        working-directory: tools/atvload
+        run: >
+          pyinstaller --noconfirm --clean --onefile --windowed --name ATVLoad --icon atvload.ico
+          --add-data "atvload_gui.html;." --collect-submodules zeroconf --collect-submodules webview
+          --hidden-import atvload atvload_gui.py
+      - name: Vérifications (mode ligne de commande, puis ouverture de la fenêtre)
+        working-directory: tools/atvload
+        shell: pwsh
+        run: |
+          $p = Start-Process dist\ATVLoad.exe -ArgumentList "list" -Wait -PassThru
+          "ligne de commande : code $($p.ExitCode)"
+          if ($p.ExitCode -ne 0) { exit 1 }
+          $g = Start-Process dist\ATVLoad.exe -PassThru
+          Start-Sleep -Seconds 12
+          if ($g.HasExited) { "la fenêtre s'est fermée (code $($g.ExitCode))"; Get-Content "$env:APPDATA\ATVLoad\atvload.log" -ErrorAction SilentlyContinue; exit 1 }
+          "fenêtre ouverte depuis 12 s : OK"
+          Stop-Process -Id $g.Id -Force
+          Get-Item dist\ATVLoad.exe | Format-List Name, Length
+      - uses: actions/upload-artifact@v4
+        with:
+          name: atvload-exe
+          path: tools/atvload/dist/ATVLoad.exe
+
   atvload-zip:
     runs-on: ubuntu-latest
     steps:
@@ -95,7 +130,7 @@ jobs:
       - name: Archive de l'outil
         run: |
           mkdir -p dist/ATVLoad
-          cp tools/atvload/atvload.py tools/atvload/atvload.bat tools/atvload/LISEZMOI.md dist/ATVLoad/
+          cp tools/atvload/atvload.py tools/atvload/atvload.bat tools/atvload/LISEZMOI.md tools/atvload/atvload_gui.py tools/atvload/atvload_gui.html tools/atvload/atvload.ico dist/ATVLoad/
           cd dist && zip -qr ATVLoad.zip ATVLoad && ls -la ATVLoad.zip
       - uses: actions/upload-artifact@v4
         with:
@@ -104,7 +139,7 @@ jobs:
 
   publication:
     runs-on: ubuntu-latest
-    needs: [plumesign-windows, hellotv, atvload-zip]
+    needs: [plumesign-windows, hellotv, atvload-zip, atvload-exe]
     if: always() && (needs.plumesign-windows.result == 'success' || needs.hellotv.result == 'success')
     steps:
       - uses: actions/download-artifact@v4
@@ -121,6 +156,7 @@ jobs:
           body: |
             Outils pour installer des apps tvOS sur Apple TV depuis Windows avec un Apple ID gratuit.
             - plumesign-windows-x86_64.exe : compilé depuis ${{ env.PLUME_REPO }}@${{ env.PLUME_REF }} (licence MIT).
-            - ATVLoad.zip : l'outil lui-même (voir LISEZMOI.md à l'intérieur).
+            - ATVLoad.exe : l'outil avec sa fenêtre (double-clic, rien à installer).
+            - ATVLoad.zip : le même outil en Python, pour la ligne de commande (voir LISEZMOI.md à l'intérieur).
             - HelloTV.ipa : app tvOS de test (non signée), à installer avec `atvload install HelloTV.ipa`.
             Fabrication n°${{ github.run_number }}.

@@ -52,6 +52,37 @@ SVC_PAIRABLE = "_remotepairing-manual-pairing._tcp.local."
 if sys.stdout and hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(errors="replace")
 
+# Sous Windows : pas de fenêtre noire qui s'ouvre à chaque appel de plumesign (interface graphique)
+NOWIN = {"creationflags": 0x08000000} if os.name == "nt" else {}
+FROZEN = getattr(sys, "frozen", False)   # ATVLoad.exe (interface graphique empaquetée)
+
+
+class ConsoleIO:
+    """Entrées/sorties du terminal. L'interface graphique (atvload_gui.py) la remplace par la sienne."""
+
+    def write(self, text):
+        if sys.stdout:
+            sys.stdout.write(text)
+            sys.stdout.flush()
+
+    def line(self, level, msg):
+        self.write(f"[{level}] {msg}\n")
+
+    def ask(self, kind, prompt, secret=False, options=None):
+        if options:
+            for i, o in enumerate(options, 1):
+                self.write(f"  {i}. {o}\n")
+        return getpass.getpass(prompt) if secret else input(prompt)
+
+    def read_line(self):
+        """Ligne tapée pendant que plumesign attend (code PIN, code 2FA) ; None = fin."""
+        line = sys.stdin.readline() if sys.stdin else ""
+        return line or None
+
+
+IO = ConsoleIO()
+CURRENT = {"proc": None}   # plumesign en cours (l'interface peut l'arrêter : bouton « Annuler »)
+
 
 # ======================================================================= utilitaires
 
@@ -71,9 +102,9 @@ def log_to_file(msg):
         f.write(f"{dt.datetime.now():%Y-%m-%d %H:%M:%S} {msg}\n")
 
 
-def info(msg):  print(f"[..] {msg}"); log_to_file(msg)
-def ok(msg):    print(f"[OK] {msg}"); log_to_file("OK " + msg)
-def warn(msg):  print(f"[!!] {msg}"); log_to_file("!! " + msg)
+def info(msg):  IO.line("..", msg); log_to_file(msg)
+def ok(msg):    IO.line("OK", msg); log_to_file("OK " + msg)
+def warn(msg):  IO.line("!!", msg); log_to_file("!! " + msg)
 
 
 class Fail(Exception):
@@ -300,8 +331,7 @@ def _pump(p, chunks):
             break
         text = b.decode("utf-8", errors="replace")
         chunks.append(text)
-        sys.stdout.write(text)
-        sys.stdout.flush()
+        IO.write(text)
 
 
 def _log_cmd(cmd, secrets):
@@ -314,10 +344,14 @@ def _log_cmd(cmd, secrets):
 def run_tee(cmd, secrets=()):
     """Lance plumesign, affiche sa sortie en direct et la renvoie (pour l'analyser)."""
     _log_cmd(cmd, secrets)
-    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=plume_env())
+    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=plume_env(), **NOWIN)
+    CURRENT["proc"] = p
     chunks = []
-    _pump(p, chunks)
-    p.wait()
+    try:
+        _pump(p, chunks)
+        p.wait()
+    finally:
+        CURRENT["proc"] = None
     out = "".join(chunks)
     log_to_file(out[-4000:])
     return p.returncode, out
@@ -328,25 +362,30 @@ def run_interactive(cmd, first_lines=(), secrets=()):
     ce que tu tapes (code PIN, code 2FA…)."""
     _log_cmd(cmd, secrets)
     p = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                         stderr=subprocess.STDOUT, env=plume_env())
+                         stderr=subprocess.STDOUT, env=plume_env(), **NOWIN)
     for line in first_lines:
         p.stdin.write((line + "\n").encode())
     p.stdin.flush()
 
     def relay():
         try:
-            for line in sys.stdin:
-                if p.poll() is not None:
+            while p.poll() is None:
+                line = IO.read_line()
+                if line is None or p.poll() is not None:
                     break
-                p.stdin.write(line.encode())
+                p.stdin.write((line.rstrip("\r\n") + "\n").encode())
                 p.stdin.flush()
         except (OSError, ValueError):
             pass
 
     threading.Thread(target=relay, daemon=True).start()
+    CURRENT["proc"] = p
     chunks = []
-    _pump(p, chunks)
-    p.wait()
+    try:
+        _pump(p, chunks)
+        p.wait()
+    finally:
+        CURRENT["proc"] = None
     out = "".join(chunks)
     for s in secrets:
         out = out.replace(s, "***")
@@ -406,8 +445,8 @@ def find_paired_devices(seconds=6.0):
         ident, tag = svc["txt"].get("identifier"), svc["txt"].get("authTag")
         if not ident or not tag:
             continue
-        r =subprocess.run(plume_cmd("check", "find-pairing", "--identifier", ident, "--auth-tag", tag),
-                           capture_output=True, text=True, errors="replace")
+        r = subprocess.run(plume_cmd("check", "find-pairing", "--identifier", ident, "--auth-tag", tag),
+                           capture_output=True, text=True, errors="replace", **NOWIN)
         m = re.search(r"UDID: `([^`]+)`", r.stdout + r.stderr)
         if m:
             result[m.group(1)] = {"ip": svc["ip"], "port": svc["port"], "name": svc["name"]}
@@ -502,6 +541,8 @@ def cmd_setup(args, state):
         import zeroconf  # noqa: F401
         ok("Module zeroconf présent")
     except ImportError:
+        if FROZEN:
+            raise Fail("Module zeroconf absent de ATVLoad.exe (fabrication incomplète).")
         info("Installation du module zeroconf…")
         subprocess.run([sys.executable, "-m", "pip", "install", "--user", "zeroconf"], check=True)
 
@@ -526,7 +567,7 @@ def cmd_setup(args, state):
         tmp.replace(target)
         ok(f"plumesign installé : {target}")
 
-    r = subprocess.run(plume_cmd("--help"), capture_output=True, text=True, errors="replace")
+    r = subprocess.run(plume_cmd("--help"), capture_output=True, text=True, errors="replace", **NOWIN)
     if r.returncode != 0 or "sign-rsd" not in r.stdout:
         raise Fail("plumesign ne répond pas comme prévu (version sans prise en charge réseau ?).")
     ok("plumesign fonctionne.")
@@ -534,7 +575,6 @@ def cmd_setup(args, state):
     choose_anisette(state)
     ok("Serveur d'identification joignable.")
     save_state(state)
-    print()
     info("Étapes suivantes :  atvload pair   puis   atvload login   puis   atvload install MonApp.ipa")
 
 
@@ -564,9 +604,8 @@ def cmd_pair(args, state):
                    "et que le pare-feu Windows autorise Python (réseau privé).")
     dev = found[0]
     if len(found) > 1:
-        for i, d in enumerate(found, 1):
-            print(f"  {i}. {d['txt'].get('name', d['name'])} ({d['ip']})")
-        dev = found[int(input("Laquelle ? ") or 1) - 1]
+        names = [f"{d['txt'].get('name', d['name'])} ({d['ip']})" for d in found]
+        dev = found[int(IO.ask("choice", "Laquelle ? ", options=names) or 1) - 1]
     name = dev["txt"].get("name", dev["name"])
     ok(f"Trouvée : {name} ({dev['ip']}:{dev['port']})")
     info("Un code va s'afficher sur la TV : tape-le ici puis Entrée.")
@@ -574,12 +613,14 @@ def cmd_pair(args, state):
                                         "--host", f"ATVLoad-{os.environ.get('COMPUTERNAME', 'PC')}"))
     if code != 0:
         raise Fail("Appairage échoué (code erroné ou délai dépassé). Relance  atvload pair")
+    state["paired"] = {"name": name, "at": dt.datetime.now().isoformat(timespec="minutes")}
+    save_state(state)
     ok("Apple TV appairée ! Elle apparaît désormais dans  atvload scan")
 
 
 def cmd_login(args, state):
-    email = args.email or input("Apple ID (e-mail) : ").strip()
-    password = getpass.getpass("Mot de passe (non affiché) : ")
+    email = (args.email or IO.ask("email", "Apple ID (e-mail) : ")).strip()
+    password = IO.ask("password", "Mot de passe (non affiché) : ", secret=True)
     info("Connexion à Apple… Si un code de validation s'affiche sur ton iPhone/iPad/Mac, tape-le ici.")
     info("(Pas d'appareil Apple pour recevoir le code ? tape  sms  puis Entrée.)")
     tried = set()
@@ -752,32 +793,35 @@ def task_exists():
     if os.name != "nt":
         return False
     return subprocess.run(["schtasks", "/Query", "/TN", TASK_NAME],
-                          capture_output=True).returncode == 0
+                          capture_output=True, **NOWIN).returncode == 0
 
 
 def cmd_schedule(args, state):
     if os.name != "nt":
         raise Fail("La planification n'est disponible que sous Windows.")
-    pyw = Path(sys.executable).with_name("pythonw.exe")
-    exe = pyw if pyw.exists() else Path(sys.executable)
-    action = f'"{exe}" "{Path(__file__).resolve()}" refresh --notify'
+    if FROZEN:   # ATVLoad.exe : il se relance lui-même en mode renouvellement silencieux
+        action = f'"{Path(sys.executable).resolve()}" refresh --notify'
+    else:
+        pyw = Path(sys.executable).with_name("pythonw.exe")
+        exe = pyw if pyw.exists() else Path(sys.executable)
+        action = f'"{exe}" "{Path(__file__).resolve()}" refresh --notify'
     hour = args.time or "12:00"
     r = subprocess.run(["schtasks", "/Create", "/F", "/TN", TASK_NAME, "/SC", "DAILY",
-                        "/ST", hour, "/TR", action], capture_output=True, text=True, errors="replace")
+                        "/ST", hour, "/TR", action], capture_output=True, text=True, errors="replace", **NOWIN)
     if r.returncode != 0:
         raise Fail("Création de la tâche planifiée échouée : " + (r.stderr or r.stdout).strip())
     # Rattrapage si le PC était éteint à l'heure prévue
     subprocess.run(["powershell", "-NoProfile", "-Command",
                     f"$s=New-ScheduledTaskSettingsSet -StartWhenAvailable -WakeToRun:$false; "
                     f"Set-ScheduledTask -TaskName '{TASK_NAME}' -Settings $s | Out-Null"],
-                   capture_output=True)
+                   capture_output=True, **NOWIN)
     ok(f"Renouvellement automatique activé : chaque jour à {hour} (rattrapé au démarrage si le PC était éteint).")
     info(f"Seules les apps à moins de {REFRESH_MARGIN_DAYS} jours de l'expiration sont renouvelées. "
          "Le PC doit être allumé et l'Apple TV sur le même réseau.")
 
 
 def cmd_unschedule(args, state):
-    subprocess.run(["schtasks", "/Delete", "/F", "/TN", TASK_NAME], capture_output=True)
+    subprocess.run(["schtasks", "/Delete", "/F", "/TN", TASK_NAME], capture_output=True, **NOWIN)
     ok("Renouvellement automatique désactivé.")
 
 

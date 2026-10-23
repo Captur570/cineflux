@@ -4,7 +4,18 @@ Installe une IPA tvOS sur ton Apple TV avec un **Apple ID gratuit**, par le rés
 
 Le moteur est **plumesign** (projet open source PlumeImpactor, variante de bitxeno, licence MIT). ATVLoad le pilote : détection de l'Apple TV, mémoire des apps, renouvellement automatique.
 
-## Installation (une fois)
+## Le plus simple : ATVLoad.exe
+
+Télécharge **ATVLoad.exe** (release « atv-tools » du dépôt) et double-clique dessus. Rien d'autre à installer.
+
+- Au premier lancement, Windows peut afficher « Windows a protégé votre ordinateur » : *Informations complémentaires › Exécuter quand même* (l'exe n'est pas signé).
+- Si Windows demande d'autoriser ATVLoad sur le réseau : **accepte pour les réseaux privés** (c'est ainsi qu'il trouve l'Apple TV).
+- La fenêtre guide les trois étapes (moteur, appairage, Apple ID), puis : glisse une IPA tvOS dans la fenêtre, ou installe ShippoTV en un clic. Chaque app affiche les jours qui lui restent ; « Renouvellement auto » (en haut) s'occupe du reste.
+- Elle partage tout avec la ligne de commande ci-dessous (même dossier, même compte, mêmes apps).
+
+## En ligne de commande (Python)
+
+### Installation (une fois)
 
 1. Installe **Python 3** (python.org, coche « Add Python to PATH »).
 2. Mets `atvload.py` et `atvload.bat` dans un dossier, ouvre un terminal dans ce dossier, puis :
@@ -14,7 +25,7 @@ Le moteur est **plumesign** (projet open source PlumeImpactor, variante de bitxe
    Ça installe le module `zeroconf` et télécharge `plumesign.exe`.
 3. Si Windows demande d'autoriser Python sur le réseau : **accepte pour les réseaux privés**. Ton réseau domestique doit être en profil « Privé ».
 
-## Première utilisation
+### Première utilisation
 
 ```
 atvload pair                 (Apple TV : Réglages > Télécommandes et appareils > Application et appareils distants, puis code PIN)
@@ -25,7 +36,7 @@ atvload schedule             (renouvellement automatique quotidien)
 
 **Conseil :** utilise un Apple ID secondaire créé pour ça, pas ton compte principal.
 
-## Au quotidien
+### Au quotidien
 
 - `atvload install MonApp.ipa` : installe ou met à jour une app.
 - `atvload list` : apps installées et date d'expiration.

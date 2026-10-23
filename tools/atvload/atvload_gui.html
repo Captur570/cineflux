@@ -1,0 +1,767 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ATVLoad</title>
+<style>
+:root {
+  --bg: #121822;
+  --surface: #19212d;
+  --raise: #212b39;
+  --line: #2b3646;
+  --text: #e7ebf1;
+  --muted: #8d99ab;
+  --ok: #67d0e4;
+  --soon: #f2b35b;
+  --bad: #ef6f6c;
+  --go: #6f8cff;
+  --num: "Bahnschrift", "DIN Alternate", "Segoe UI Variable Display", system-ui, sans-serif;
+  --body: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body {
+  background: var(--bg);
+  background-image: radial-gradient(1200px 500px at 85% -10%, rgba(111, 140, 255, .10), transparent 60%);
+  color: var(--text); font: 15px/1.5 var(--body);
+  display: grid; grid-template-rows: auto 1fr auto; overflow: hidden;
+  -webkit-user-select: none; user-select: none;
+}
+button { font: inherit; color: inherit; cursor: pointer; }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--go); outline-offset: 2px; }
+.btn { border: 1px solid var(--line); background: var(--raise); border-radius: 10px; padding: 8px 14px; font-weight: 600; }
+.btn:hover { border-color: #3c4a5f; }
+.btn.primary { background: var(--go); border-color: var(--go); color: #0d1220; }
+.btn.primary:hover { filter: brightness(1.08); }
+.btn.quiet { background: transparent; border-color: transparent; color: var(--muted); }
+.btn.quiet:hover { color: var(--text); }
+.btn:disabled { opacity: .45; cursor: default; filter: none; }
+.btn.primary:disabled { background: var(--raise); border-color: var(--line); color: var(--muted); opacity: 1; }
+
+/* ---------- en-tête */
+header { display: flex; align-items: center; gap: 28px; padding: 18px 28px 14px; border-bottom: 1px solid var(--line); }
+.brand { display: flex; align-items: center; gap: 12px; }
+.brand svg { width: 30px; height: 30px; }
+.brand b { font: 600 22px/1 var(--num); letter-spacing: .02em; }
+.facts { display: flex; gap: 26px; flex: 1; min-width: 0; }
+.fact { min-width: 0; }
+.fact small { display: block; color: var(--muted); font-size: 12px; }
+.fact span { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px; font-weight: 600; }
+.fact .none { color: var(--muted); font-weight: 400; }
+.switch { display: flex; align-items: center; gap: 10px; background: none; border: 0; padding: 0; text-align: left; }
+.switch i { width: 34px; height: 20px; border-radius: 10px; background: var(--line); position: relative; transition: background .2s; flex: none; }
+.switch i::after { content: ""; position: absolute; top: 3px; left: 3px; width: 14px; height: 14px; border-radius: 50%; background: var(--text); transition: transform .2s; }
+.switch[aria-checked="true"] i { background: var(--ok); }
+.switch[aria-checked="true"] i::after { transform: translateX(14px); background: #0d1220; }
+.menu-wrap { position: relative; }
+.menu { position: absolute; right: 0; top: 44px; z-index: 20; min-width: 270px; background: var(--raise); border: 1px solid var(--line); border-radius: 12px; padding: 6px; box-shadow: 0 18px 40px rgba(0,0,0,.45); display: none; }
+.menu.open { display: block; }
+.menu button { display: block; width: 100%; text-align: left; background: none; border: 0; padding: 9px 12px; border-radius: 8px; }
+.menu button:hover { background: rgba(255,255,255,.06); }
+.menu hr { border: 0; border-top: 1px solid var(--line); margin: 6px 4px; }
+
+/* ---------- corps */
+main { display: grid; grid-template-columns: 1fr 330px; min-height: 0; }
+.col { overflow: auto; padding: 26px 28px 30px; }
+.side { border-left: 1px solid var(--line); background: rgba(0,0,0,.12); }
+h1 { font: 600 26px/1.2 var(--num); margin: 0 0 4px; letter-spacing: .01em; }
+h2 { font: 600 17px/1.3 var(--num); margin: 0 0 12px; letter-spacing: .02em; }
+.lead { color: var(--muted); margin: 0 0 22px; max-width: 62ch; }
+
+/* assistant de première utilisation : une vraie suite d'étapes */
+.steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; max-width: 760px; }
+.step { display: grid; grid-template-columns: 44px 1fr auto; gap: 16px; align-items: center; padding: 16px 18px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
+.step .n { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; font: 600 17px var(--num); border: 2px solid var(--line); color: var(--muted); }
+.step.done .n { background: var(--ok); border-color: var(--ok); color: #0d1220; }
+.step.next { border-color: rgba(111,140,255,.55); }
+.step.next .n { border-color: var(--go); color: var(--text); }
+.step p { margin: 2px 0 0; color: var(--muted); font-size: 14px; }
+.step b { font-weight: 600; }
+
+/* apps installées : le cadran des 7 jours est l'élément marquant */
+.apps { display: grid; gap: 4px; }
+.app { display: grid; grid-template-columns: 92px 1fr auto; gap: 20px; align-items: center; padding: 14px 10px 14px 4px; border-bottom: 1px solid var(--line); }
+.app:last-child { border-bottom: 0; }
+.dial { width: 92px; height: 92px; position: relative; }
+.dial svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.dial .d { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; line-height: 1; }
+.dial .d b { font: 600 30px/1 var(--num); display: block; }
+.dial .d small { font-size: 11px; color: var(--muted); display: block; margin-top: 3px; }
+.app h3 { margin: 0; font: 600 19px/1.25 var(--num); letter-spacing: .01em; }
+.app .meta { color: var(--muted); font-size: 13.5px; margin-top: 2px; }
+.app .when { margin-top: 6px; font-size: 14px; }
+.app .when.soon { color: var(--soon); }
+.app .when.bad { color: var(--bad); }
+.app .acts { display: flex; gap: 6px; align-items: center; }
+.empty { border: 1px dashed var(--line); border-radius: 14px; padding: 28px; color: var(--muted); max-width: 640px; }
+.empty b { color: var(--text); }
+.toolbar { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin-bottom: 10px; }
+
+/* colonne d'ajout */
+.drop { border: 2px dashed var(--line); border-radius: 16px; padding: 26px 18px; text-align: center; transition: border-color .15s, background .15s; }
+.drop.over { border-color: var(--go); background: rgba(111,140,255,.08); }
+.drop svg { width: 34px; height: 34px; color: var(--muted); }
+.drop p { margin: 8px 0 14px; color: var(--muted); font-size: 14px; }
+.preset { display: grid; grid-template-columns: 40px 1fr auto; gap: 12px; align-items: center; width: 100%; text-align: left; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px; margin-top: 10px; }
+.preset:hover { border-color: #3c4a5f; }
+.preset .ico { width: 40px; height: 40px; border-radius: 10px; display: grid; place-items: center; font: 600 18px var(--num); color: #0d1220; }
+.preset small { display: block; color: var(--muted); font-size: 13px; }
+.preset .go { color: var(--go); font-weight: 600; font-size: 14px; }
+.sidenote { color: var(--muted); font-size: 13px; margin-top: 22px; line-height: 1.55; }
+.sidenote b { color: var(--text); font-weight: 600; }
+
+/* ---------- bande d'activité */
+footer { border-top: 1px solid var(--line); background: var(--surface); }
+.bar { display: flex; align-items: center; gap: 14px; padding: 10px 28px; min-height: 52px; }
+.bar .state { width: 18px; height: 18px; flex: none; border-radius: 50%; }
+.bar .state.idle { background: var(--line); }
+.bar .state.run { border: 2px solid var(--line); border-top-color: var(--go); animation: spin .8s linear infinite; }
+.bar .state.ok { background: var(--ok); }
+.bar .state.err { background: var(--bad); }
+@keyframes spin { to { transform: rotate(360deg); } }
+.bar .txt { flex: 1; min-width: 0; }
+.bar .txt b { font-weight: 600; margin-right: 10px; }
+.bar .txt span { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: inline-block; max-width: 100%; vertical-align: bottom; }
+.progress { height: 3px; background: var(--line); }
+.progress i { display: block; height: 100%; width: 0; background: var(--go); transition: width .25s; }
+.problem { margin: 0 28px 12px; padding: 12px 14px; border-radius: 12px; background: rgba(239,111,108,.12); border: 1px solid rgba(239,111,108,.35); display: none; }
+.problem.show { display: block; }
+.problem p { margin: 0 0 4px; }
+.problem ul { margin: 6px 0 0; padding-left: 18px; color: #f3c3c1; font-size: 14px; }
+.problem .fix { margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap; }
+pre.log { margin: 0; max-height: 0; overflow: auto; background: #0d1219; color: #b9c3d2; font: 12.5px/1.5 Consolas, "Cascadia Mono", monospace; padding: 0 28px; white-space: pre-wrap; word-break: break-word; transition: max-height .25s ease, padding .25s ease; -webkit-user-select: text; user-select: text; }
+pre.log.open { max-height: 230px; padding: 12px 28px; }
+
+/* ---------- fenêtres */
+.veil { position: fixed; inset: 0; background: rgba(6,9,14,.66); display: none; place-items: center; z-index: 50; }
+.veil.open { display: grid; }
+.dialog { width: min(520px, calc(100vw - 40px)); background: var(--raise); border: 1px solid var(--line); border-radius: 18px; padding: 24px 26px; box-shadow: 0 30px 80px rgba(0,0,0,.55); }
+.dialog h2 { font-size: 21px; margin-bottom: 8px; }
+.dialog p { color: var(--muted); margin: 0 0 14px; }
+.dialog p b { color: var(--text); font-weight: 600; }
+.dialog label { display: block; font-size: 13px; color: var(--muted); margin: 12px 0 6px; }
+.dialog input[type=text], .dialog input[type=email], .dialog input[type=password] {
+  width: 100%; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; color: var(--text); padding: 10px 12px; font: inherit; -webkit-user-select: text; user-select: text; }
+.dialog .row { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
+.code { width: 100%; text-align: center; font: 600 40px/1 var(--num) !important; letter-spacing: .35em; padding: 14px 0 14px .35em !important; }
+.path { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin-top: 4px; }
+.path b { display: block; color: var(--text); }
+.path small { color: var(--muted); }
+.wait { display: flex; gap: 12px; align-items: center; color: var(--muted); padding: 12px 0 2px; }
+.wait i { width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--line); border-top-color: var(--go); animation: spin .8s linear infinite; flex: none; }
+.hide { display: none !important; }
+.choices button { display: block; width: 100%; text-align: left; margin-top: 8px; }
+
+@media (max-width: 860px) { main { grid-template-columns: 1fr; } .side { border-left: 0; border-top: 1px solid var(--line); } .facts { gap: 16px; } }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation-duration: 2s !important; } }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <svg viewBox="0 0 32 32" fill="none" aria-hidden="true">
+      <rect x="2" y="5" width="28" height="18" rx="4" stroke="#6f8cff" stroke-width="2.4"/>
+      <path d="M11 28h10" stroke="#6f8cff" stroke-width="2.4" stroke-linecap="round"/>
+      <path d="M16 10v8m0 0-3.5-3.5M16 18l3.5-3.5" stroke="#67d0e4" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <b>ATVLoad</b>
+  </div>
+  <div class="facts">
+    <div class="fact"><small>Apple TV</small><span id="fTv" class="none">Non appairée</span></div>
+    <div class="fact"><small>Compte Apple</small><span id="fAcc" class="none">Non connecté</span></div>
+    <button class="switch fact" id="fAuto" role="switch" aria-checked="false" title="Renouvelle chaque jour à midi les apps qui expirent dans moins de 3 jours">
+      <i></i><span><small style="font-weight:400">Renouvellement auto</small><span id="fAutoTxt">Désactivé</span></span>
+    </button>
+  </div>
+  <div class="menu-wrap">
+    <button class="btn" id="menuBtn" aria-haspopup="true" aria-expanded="false">Plus</button>
+    <div class="menu" id="menu" role="menu">
+      <button data-act="scan">Rechercher l'Apple TV</button>
+      <button data-act="pair">Appairer une Apple TV</button>
+      <button data-act="login">Changer de compte Apple</button>
+      <button data-act="refreshAll">Tout renouveler maintenant</button>
+      <hr>
+      <button data-act="certs">Voir mes certificats</button>
+      <button data-act="setupForce">Mettre à jour le moteur (plumesign)</button>
+      <hr>
+      <button data-act="openLog">Ouvrir le journal</button>
+      <button data-act="openData">Ouvrir le dossier d'ATVLoad</button>
+    </div>
+  </div>
+</header>
+
+<main>
+  <section class="col" id="mainCol">
+    <div id="setupView" class="hide">
+      <h1>Préparer ATVLoad</h1>
+      <p class="lead">Trois étapes, à faire une seule fois. Ensuite, installer une app tvOS se fait en la glissant dans la fenêtre.</p>
+      <ol class="steps">
+        <li class="step" id="s1">
+          <div class="n">1</div>
+          <div><b>Installer le moteur</b><p>Télécharge plumesign, l'outil qui signe et envoie les apps à l'Apple TV.</p></div>
+          <button class="btn" data-act="setup">Installer</button>
+        </li>
+        <li class="step" id="s2">
+          <div class="n">2</div>
+          <div><b>Appairer l'Apple TV</b><p>Un code s'affiche sur la TV, tu le recopies ici.</p></div>
+          <button class="btn" data-act="pair">Appairer</button>
+        </li>
+        <li class="step" id="s3">
+          <div class="n">3</div>
+          <div><b>Se connecter avec un Apple ID</b><p>Un compte gratuit suffit. Mieux vaut un Apple ID secondaire, créé pour ça.</p></div>
+          <button class="btn" data-act="login">Se connecter</button>
+        </li>
+      </ol>
+    </div>
+
+    <div id="appsView" class="hide">
+      <div class="toolbar">
+        <h1>Sur ton Apple TV</h1>
+        <button class="btn quiet" data-act="refreshAll" id="refreshAllBtn">Tout renouveler</button>
+      </div>
+      <p class="lead" id="appsLead"></p>
+      <div class="apps" id="apps"></div>
+    </div>
+  </section>
+
+  <aside class="col side">
+    <h2>Ajouter une app</h2>
+    <div class="drop" id="drop">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V4m0 0L8 8m4-4 4 4"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg>
+      <p id="dropTxt">Glisse ici un fichier .ipa compilé pour tvOS</p>
+      <button class="btn" data-act="pick">Choisir un fichier</button>
+    </div>
+    <div id="presets"></div>
+    <div class="sidenote">
+      Avec un compte gratuit, Apple limite à <b>3 apps</b> par Apple TV, valables <b>7 jours</b>.
+      ATVLoad les renouvelle avant l'échéance, tant que le PC est allumé et l'Apple TV sur le même réseau.
+    </div>
+  </aside>
+</main>
+
+<footer>
+  <div class="progress"><i id="prog"></i></div>
+  <div class="problem" id="problem">
+    <p id="probTitle"></p>
+    <ul id="probList"></ul>
+    <div class="fix" id="probFix"></div>
+  </div>
+  <div class="bar">
+    <div class="state idle" id="stateDot"></div>
+    <div class="txt"><b id="jobTitle">Prêt</b><span id="jobLine"></span></div>
+    <button class="btn quiet hide" id="cancelBtn">Annuler</button>
+    <button class="btn quiet" id="logBtn" aria-expanded="false">Détails</button>
+  </div>
+  <pre class="log" id="log"></pre>
+</footer>
+
+<!-- Appairage -->
+<div class="veil" id="pairDlg" role="dialog" aria-modal="true" aria-labelledby="pairT">
+  <div class="dialog">
+    <h2 id="pairT">Appairer l'Apple TV</h2>
+    <p>Sur l'Apple TV, ouvre <b>Réglages › Télécommandes et appareils › Application et appareils distants</b> et reste sur cet écran.</p>
+    <div class="wait" id="pairWait"><i></i><span>Recherche de l'Apple TV sur le réseau…</span></div>
+    <div id="pairPin" class="hide">
+      <label for="pinIn">Code affiché sur la TV</label>
+      <input id="pinIn" class="code" type="text" inputmode="numeric" maxlength="8" autocomplete="off">
+    </div>
+    <div class="row">
+      <button class="btn quiet" data-close="pair">Annuler</button>
+      <button class="btn primary hide" id="pinOk">Valider le code</button>
+    </div>
+  </div>
+</div>
+
+<!-- Connexion Apple -->
+<div class="veil" id="loginDlg" role="dialog" aria-modal="true" aria-labelledby="loginT">
+  <div class="dialog">
+    <h2 id="loginT">Se connecter avec un Apple ID</h2>
+    <div id="loginForm">
+      <p>Le mot de passe est transmis à Apple et n'est pas enregistré. Seule la session est gardée, pour les renouvellements.</p>
+      <label for="email">Apple ID (adresse e-mail)</label>
+      <input id="email" type="email" autocomplete="username" spellcheck="false">
+      <label for="pass">Mot de passe</label>
+      <input id="pass" type="password" autocomplete="current-password">
+    </div>
+    <div id="loginWait" class="wait hide"><i></i><span>Connexion à Apple…</span></div>
+    <div id="loginCode" class="hide">
+      <p id="codeHelp">Apple a envoyé un code de validation sur ton iPhone, iPad ou Mac.</p>
+      <input id="codeIn" class="code" type="text" inputmode="numeric" maxlength="6" autocomplete="one-time-code">
+    </div>
+    <div class="row">
+      <button class="btn quiet" data-close="login">Annuler</button>
+      <button class="btn hide" id="smsBtn">Recevoir le code par SMS</button>
+      <button class="btn primary" id="loginOk">Se connecter</button>
+    </div>
+  </div>
+</div>
+
+<!-- Confirmation d'installation -->
+<div class="veil" id="ipaDlg" role="dialog" aria-modal="true" aria-labelledby="ipaT">
+  <div class="dialog">
+    <h2 id="ipaT">Installer sur l'Apple TV</h2>
+    <div class="path" id="ipaBox"></div>
+    <p id="ipaNote" style="margin-top:12px"></p>
+    <div id="revokeBox" class="hide">
+      <label for="revokeIn">Certificat à révoquer (numéro de série, facultatif)</label>
+      <input id="revokeIn" type="text" spellcheck="false">
+    </div>
+    <div class="row">
+      <button class="btn quiet" data-close="ipa">Annuler</button>
+      <button class="btn primary" id="ipaOk">Installer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Question générique (choix d'Apple TV, etc.) -->
+<div class="veil" id="askDlg" role="dialog" aria-modal="true" aria-labelledby="askT">
+  <div class="dialog">
+    <h2 id="askT">Une précision</h2>
+    <p id="askTxt"></p>
+    <div class="choices" id="askChoices"></div>
+    <input id="askIn" type="text" class="hide">
+    <div class="row">
+      <button class="btn quiet" data-close="ask">Annuler</button>
+      <button class="btn primary" id="askOk">Valider</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  let api = null;
+  let S = null;              // dernier état connu
+  let job = null;            // tâche en cours
+  let jobWarnings = [];
+  let pendingIpa = null;     // { path, preset }
+
+  const TITLES = {
+    setup: 'Installation du moteur', pair: 'Appairage', login: 'Connexion à Apple', install: 'Installation',
+    preset: 'Installation', refresh: 'Renouvellement', refresh_one: 'Renouvellement', scan: 'Recherche de l\'Apple TV',
+    schedule: 'Renouvellement automatique', unschedule: 'Renouvellement automatique', certs: 'Certificats',
+  };
+  const DONE = {
+    setup: 'Moteur installé', pair: 'Apple TV appairée', login: 'Connecté à Apple', install: 'App installée',
+    preset: 'App installée', refresh: 'Renouvellement terminé', refresh_one: 'App renouvelée', scan: 'Recherche terminée',
+    schedule: 'Renouvellement automatique activé', unschedule: 'Renouvellement automatique désactivé', certs: 'Liste des certificats dans le détail',
+  };
+
+  // Les messages d'atvload parlent de commandes du terminal : on les traduit en boutons de la fenêtre.
+  function friendly(msg) {
+    const L = (c) => `« ${CMD[c] || c} »`;
+    return String(msg || '')
+      .replace(/(?:(?:re)?lance|refais)\s+(d'abord\s+)?:?\s*atvload (\w+)(?: MonApp\.ipa)?/gi, (m, d, c) => `utilise ${d || ''}${L(c)}`)
+      .replace(/atvload (\w+)(?: MonApp\.ipa)?/gi, (m, c) => L(c))
+      .replace(/\s+(\.|,)/g, '$1')
+      .replace(/ \(choisis avec --udid\)/gi, '')
+      .replace(/\(?Pas d'appareil Apple pour recevoir le code \? tape\s+sms\s+puis Entrée\.\)?/gi, "Pas d'appareil Apple sous la main ? Le code peut aussi arriver par SMS.")
+      .replace(/tape-le ici( puis Entrée)?/gi, 'saisis-le dans la fenêtre')
+      .replace(/ avec\s+--revoke <numéro de série>/gi, ' en indiquant le certificat à révoquer')
+      .replace(/\s{2,}/g, ' ')
+      .replace(/([.!?]\s+)(\p{Ll})/gu, (m, a, b) => a + b.toUpperCase()).trim();
+  }
+  const CMD = { login: 'Se connecter', pair: 'Appairer', setup: 'Installer le moteur', install: 'Ajouter une app', refresh: 'Renouveler', certs: 'Voir mes certificats', schedule: 'Renouvellement auto', scan: 'Rechercher l\'Apple TV' };
+
+  function fixesFor(text) {
+    const t = text.toLowerCase(), out = [];
+    if (/login|session|connexion refus|compte/.test(t)) out.push(['login', 'Se reconnecter']);
+    if (/pair|appair/.test(t)) out.push(['pair', 'Appairer de nouveau']);
+    if (/certificat/.test(t)) out.push(['certs', 'Voir mes certificats']);
+    if (/introuvable|aucune apple tv|réveille|connexion à l'apple tv/.test(t)) out.push(['scan', 'Rechercher l\'Apple TV']);
+    if (/plumesign/.test(t)) out.push(['setup', 'Installer le moteur']);
+    return out;
+  }
+
+  // ------------------------------------------------------------------ rendu
+  function daysTxt(d) {
+    if (d == null) return ['?', 'jours'];
+    if (d <= 0) return ['0', 'expirée'];
+    if (d < 1) return [String(Math.max(1, Math.round(d * 24))), 'heures'];
+    const n = Math.max(1, Math.round(d));
+    return [String(n), n > 1 ? 'jours' : 'jour'];
+  }
+  function dial(d) {
+    // 7 segments, un par jour de validité ; ceux qui restent sont allumés
+    const r = 40, c = 2 * Math.PI * r, gap = 5, seg = c / 7 - gap;
+    const left = d == null ? 0 : Math.max(0, Math.min(7, d));
+    const col = d == null ? 'var(--muted)' : d <= 0 ? 'var(--bad)' : d < 3 ? 'var(--soon)' : 'var(--ok)';
+    let arcs = '';
+    for (let i = 0; i < 7; i++) {
+      const fill = Math.max(0, Math.min(1, left - (6 - i)));   // le dernier jour s'éteint en premier
+      const off = -(i * (seg + gap));
+      arcs += `<circle cx="46" cy="46" r="${r}" fill="none" stroke="${d != null && d <= 0 ? 'rgba(239,111,108,.35)' : 'var(--line)'}" stroke-width="7" stroke-dasharray="${seg} ${c - seg}" stroke-dashoffset="${off}"/>`;
+      if (fill > 0) arcs += `<circle cx="46" cy="46" r="${r}" fill="none" stroke="${col}" stroke-width="7" stroke-dasharray="${seg * fill} ${c - seg * fill}" stroke-dashoffset="${off}"/>`;
+    }
+    const [n, u] = daysTxt(d);
+    return `<div class="dial"><svg viewBox="0 0 92 92" aria-hidden="true">${arcs}</svg><div class="d"><div><b>${n}</b><small>${u}</small></div></div></div>`;
+  }
+  function since(iso) {
+    if (!iso) return '';
+    const t = new Date(iso), h = (Date.now() - t) / 36e5;
+    if (h < 1) return 'à l\'instant';
+    if (h < 24) return `il y a ${Math.round(h)} h`;
+    const j = Math.round(h / 24);
+    return `il y a ${j} jour${j > 1 ? 's' : ''}`;
+  }
+
+  function render() {
+    if (!S) return;
+    const setupDone = [!!S.plumesign, !!S.paired, !!S.account];
+    const ready = setupDone.every(Boolean);
+    $('setupView').classList.toggle('hide', ready && true);
+    $('appsView').classList.toggle('hide', !ready && S.apps.length === 0);
+    const next = setupDone.indexOf(false);
+    ['s1', 's2', 's3'].forEach((id, i) => {
+      const el = $(id);
+      el.classList.toggle('done', setupDone[i]);
+      el.classList.toggle('next', i === next);
+      const b = el.querySelector('button');
+      b.textContent = setupDone[i] ? (i === 0 ? 'Réinstaller' : i === 1 ? 'Refaire' : 'Changer') : ['Installer', 'Appairer', 'Se connecter'][i];
+      b.className = 'btn' + (i === next ? ' primary' : setupDone[i] ? ' quiet' : '');
+      b.disabled = !!job || (i > next && next !== -1);
+    });
+
+    const tv = S.devices.map((d) => d.name).join(', ') || S.paired_name || '';
+    $('fTv').textContent = tv || (S.paired ? 'Appairée' : 'Non appairée');
+    $('fTv').className = tv || S.paired ? '' : 'none';
+    $('fAcc').textContent = S.account || 'Non connecté';
+    $('fAcc').className = S.account ? '' : 'none';
+    $('fAuto').setAttribute('aria-checked', String(!!S.schedule));
+    $('fAutoTxt').textContent = S.schedule ? 'Chaque jour à midi' : 'Désactivé';
+    $('fAuto').classList.toggle('hide', !S.windows);
+
+    const box = $('apps');
+    if (!S.apps.length) {
+      $('appsLead').textContent = '';
+      box.innerHTML = `<div class="empty"><b>Aucune app pour l'instant.</b><br>Glisse une IPA tvOS dans la colonne de droite, ou installe ShippoTV en un clic.</div>`;
+      $('refreshAllBtn').classList.add('hide');
+    } else {
+      const soon = S.apps.filter((a) => a.days_left != null && a.days_left < 3).length;
+      $('appsLead').textContent = soon ? `${soon} app${soon > 1 ? 's' : ''} à renouveler bientôt.` : 'Tout est à jour.';
+      $('refreshAllBtn').classList.remove('hide');
+      box.innerHTML = S.apps.map((a) => {
+        const d = a.days_left;
+        const cls = d == null ? '' : d <= 0 ? 'bad' : d < 3 ? 'soon' : '';
+        const when = d == null ? 'Date d\'expiration inconnue' : d <= 0 ? `A expiré le ${a.expires_txt}` : `Valable jusqu'au ${a.expires_txt}`;
+        const last = a.refreshed ? `renouvelée ${since(a.refreshed)}` : a.installed ? `installée ${since(a.installed)}` : '';
+        return `<div class="app" data-key="${esc(a.key)}">
+          ${dial(d)}
+          <div><h3>${esc(a.name)}</h3>
+            <div class="meta">${esc(a.tv)}${last ? ', ' + esc(last) : ''}</div>
+            <div class="when ${cls}">${esc(when)}</div></div>
+          <div class="acts">
+            <button class="btn${cls ? ' primary' : ''}" data-app="refresh" ${job || !a.ipa_ok ? 'disabled' : ''}>Renouveler</button>
+            <button class="btn quiet" data-app="reinstall" ${job || !a.ipa_ok ? 'disabled' : ''} title="Réinstaller complètement l'app (si elle a disparu de l'Apple TV)">Réinstaller</button>
+            <button class="btn quiet" data-app="remove" ${job ? 'disabled' : ''} title="Ne plus suivre cette app (elle reste sur l'Apple TV jusqu'à son expiration)">Retirer</button>
+          </div></div>`;
+      }).join('');
+    }
+
+    $('presets').innerHTML = Object.entries(S.presets).map(([id, p], i) => `
+      <button class="preset" data-preset="${id}" ${job ? 'disabled' : ''}>
+        <span class="ico" style="background:${i ? 'var(--ok)' : '#c94f74'}">${esc(p.name[0])}</span>
+        <span><b>${esc(p.name)}</b><small>${esc(p.desc)}</small></span>
+        <span class="go">${S.apps.some((a) => a.name === p.name) ? 'Mettre à jour' : 'Installer'}</span>
+      </button>`).join('');
+  }
+
+  async function refresh() { S = await api.status(); render(); }
+
+  // ------------------------------------------------------------------ tâches
+  async function start(name, params = {}) {
+    closeMenu();
+    hideProblem();
+    const r = await api.start(name, params);
+    if (!r.ok) { showProblem(r.error, []); return false; }
+    job = name; jobWarnings = [];
+    $('stateDot').className = 'state run';
+    $('jobTitle').textContent = TITLES[name] || name;
+    $('jobLine').textContent = '';
+    $('cancelBtn').classList.toggle('hide', !['pair', 'login', 'install', 'preset', 'refresh', 'refresh_one', 'certs'].includes(name));
+    appendLog(`\n— ${TITLES[name] || name} —\n`);
+    render();
+    return true;
+  }
+
+  function finish(res) {
+    const name = res.job;
+    job = null;
+    $('cancelBtn').classList.add('hide');
+    $('prog').style.width = '0';
+    if (res.ok) {
+      $('stateDot').className = 'state ok';
+      $('jobTitle').textContent = DONE[name] || 'Terminé';
+      if (name === 'certs') openLog(true);
+    } else {
+      $('stateDot').className = 'state err';
+      $('jobTitle').textContent = (TITLES[name] || 'Opération') + ' : échec';
+      showProblem(res.error, jobWarnings, name);
+    }
+    if (name === 'pair') closeDlg('pairDlg');
+    if (name === 'login') { res.ok ? closeDlg('loginDlg') : loginReset(); }
+    if (name === 'scan' && res.data) {
+      const p = res.data.paired;
+      $('jobLine').textContent = p.length ? p.map((d) => `${d.name} (${d.ip})`).join(', ') : 'Aucune Apple TV appairée visible';
+    }
+  }
+
+  function showProblem(err, warnings, name) {
+    $('probTitle').textContent = friendly(err || 'Échec.');
+    $('probList').innerHTML = warnings.map((w) => `<li>${esc(friendly(w))}</li>`).join('');
+    const fx = fixesFor([err, ...warnings].join(' '));
+    $('probFix').innerHTML = fx.map(([a, l]) => `<button class="btn" data-act="${a}">${esc(l)}</button>`).join('')
+      + `<button class="btn quiet" data-act="openLogPanel">Voir le détail</button><button class="btn quiet" data-act="hideProblem">Fermer</button>`;
+    $('problem').classList.add('show');
+  }
+  function hideProblem() { $('problem').classList.remove('show'); }
+
+  // ------------------------------------------------------------------ messages de Python
+  window.ui = {
+    on(evt) {
+      const d = evt.data;
+      switch (evt.kind) {
+        case 'log': appendLog(d); break;
+        case 'line':
+          if (d.level === '!!') jobWarnings.push(d.msg);
+          $('jobLine').textContent = friendly(d.msg);
+          if (job === 'pair' && /Trouvée/.test(d.msg)) $('pairWait').querySelector('span').textContent = friendly(d.msg) + '. Connexion…';
+          break;
+        case 'prompt': onPrompt(d); break;
+        case 'progress':
+          if (!d) { $('prog').style.width = '0'; break; }
+          $('prog').style.width = d.pct + '%';
+          $('jobLine').textContent = `${d.label} : ${d.mb} / ${d.total} Mo`;
+          break;
+        case 'done': finish(d); break;
+        case 'status': S = d; render(); break;
+        case 'dropped': askInstall(d); break;
+        case 'nodrop': $('dropTxt').textContent = 'Choisis un fichier .ipa compilé pour tvOS'; break;
+      }
+    },
+  };
+
+  let logBuf = '';
+  function appendLog(t) {
+    logBuf = (logBuf + t.replace(/\x1b\[[0-9;]*m/g, '')).slice(-60000);
+    const el = $('log');
+    const atEnd = el.scrollTop + el.clientHeight >= el.scrollHeight - 8;
+    el.textContent = logBuf;
+    if (atEnd) el.scrollTop = el.scrollHeight;
+  }
+  function openLog(open) {
+    const el = $('log');
+    const o = open ?? !el.classList.contains('open');
+    el.classList.toggle('open', o);
+    $('logBtn').setAttribute('aria-expanded', String(o));
+    $('logBtn').textContent = o ? 'Masquer' : 'Détails';
+    if (o) el.scrollTop = el.scrollHeight;
+  }
+
+  // ------------------------------------------------------------------ questions de plumesign
+  function onPrompt(p) {
+    if (p.kind === 'pin') {
+      $('pairWait').classList.add('hide');
+      $('pairPin').classList.remove('hide');
+      $('pinOk').classList.remove('hide');
+      $('pinIn').value = '';
+      $('pinIn').focus();
+      return;
+    }
+    if (p.kind === '2fa' || p.kind === '2fa_sms' || p.kind === 'sms') {
+      openDlg('loginDlg');
+      $('loginForm').classList.add('hide');
+      $('loginWait').classList.add('hide');
+      $('loginCode').classList.remove('hide');
+      $('codeHelp').textContent = p.kind === 'sms' ? 'Apple a envoyé un code par SMS.' : 'Apple a envoyé un code de validation sur ton iPhone, iPad ou Mac.';
+      $('smsBtn').classList.toggle('hide', p.kind !== '2fa_sms');
+      $('loginOk').textContent = 'Valider le code';
+      $('loginOk').disabled = false;
+      $('codeIn').value = '';
+      $('codeIn').focus();
+      return;
+    }
+    // question générique : e-mail, choix d'une Apple TV…
+    $('askTxt').textContent = p.text || '';
+    $('askChoices').innerHTML = (p.options || []).map((o, i) => `<button class="btn" data-choice="${i + 1}">${esc(o)}</button>`).join('');
+    $('askIn').classList.toggle('hide', !!(p.options || []).length);
+    $('askIn').value = '';
+    $('askOk').classList.toggle('hide', !!(p.options || []).length);
+    openDlg('askDlg');
+  }
+
+  // ------------------------------------------------------------------ fenêtres
+  function openDlg(id) { $(id).classList.add('open'); }
+  function closeDlg(id) { $(id).classList.remove('open'); }
+
+  function openPair() {
+    $('pairWait').classList.remove('hide');
+    $('pairWait').querySelector('span').textContent = 'Recherche de l\'Apple TV sur le réseau…';
+    $('pairPin').classList.add('hide');
+    $('pinOk').classList.add('hide');
+    openDlg('pairDlg');
+    start('pair');
+  }
+  function openLogin() {
+    loginReset();
+    $('email').value = S && S.account || '';
+    $('pass').value = '';
+    openDlg('loginDlg');
+    ($('email').value ? $('pass') : $('email')).focus();
+  }
+  function loginReset() {
+    $('loginForm').classList.remove('hide');
+    $('loginWait').classList.add('hide');
+    $('loginCode').classList.add('hide');
+    $('smsBtn').classList.add('hide');
+    $('loginOk').textContent = 'Se connecter';
+    $('loginOk').disabled = false;
+  }
+
+  async function askInstall(path, preset) {
+    pendingIpa = { path, preset };
+    $('revokeBox').classList.add('hide');
+    $('revokeIn').value = '';
+    if (preset) {
+      const p = S.presets[preset];
+      $('ipaBox').innerHTML = `<b>${esc(p.name)}</b><small>${esc(p.desc)}, téléchargée depuis GitHub</small>`;
+      $('ipaNote').textContent = 'La première fois, Apple crée ton certificat : compte une à deux minutes.';
+      $('ipaOk').disabled = false;
+    } else {
+      const i = await api.ipa_info(path);
+      const name = path.split(/[\\/]/).pop();
+      if (!i.ok) {
+        $('ipaBox').innerHTML = `<b>${esc(name)}</b><small>${esc(i.error)}</small>`;
+        $('ipaNote').textContent = '';
+        $('ipaOk').disabled = true;
+      } else {
+        $('ipaBox').innerHTML = `<b>${esc(i.name || name)}${i.version ? ' ' + esc(i.version) : ''}</b><small>${esc(i.bundle || '')}</small>`;
+        $('ipaNote').textContent = i.tvos ? 'La première fois, Apple crée ton certificat : compte une à deux minutes.'
+          : `Cette app est faite pour iPhone ou iPad, pas pour l'Apple TV : elle ne pourra pas s'y installer. Il faut sa version compilée pour tvOS.`;
+        $('ipaOk').disabled = !i.tvos;
+      }
+    }
+    if (/certificat/i.test($('probTitle').textContent + $('probList').textContent) && $('problem').classList.contains('show')) $('revokeBox').classList.remove('hide');
+    openDlg('ipaDlg');
+  }
+
+  function closeMenu() { $('menu').classList.remove('open'); $('menuBtn').setAttribute('aria-expanded', 'false'); }
+
+  // ------------------------------------------------------------------ actions
+  const ACTS = {
+    setup: () => start('setup'),
+    setupForce: () => start('setup', { force: true }),
+    pair: () => openPair(),
+    login: () => openLogin(),
+    scan: () => start('scan'),
+    refreshAll: () => start('refresh', { all: true }),
+    certs: () => start('certs'),
+    pick: async () => { const p = await api.pick_ipa(); if (p) askInstall(p); },
+    openLog: () => api.open_path('log'),
+    openData: () => api.open_path('data'),
+    openLogPanel: () => openLog(true),
+    hideProblem: () => hideProblem(),
+  };
+
+  document.addEventListener('click', async (e) => {
+    const t = e.target.closest('button');
+    if (!t) { if (!e.target.closest('.menu-wrap')) closeMenu(); return; }
+    if (t.dataset.act) { closeMenu(); return ACTS[t.dataset.act] && ACTS[t.dataset.act](); }
+    if (t.dataset.preset) return askInstall(null, t.dataset.preset);
+    if (t.dataset.close) {
+      closeDlg(t.dataset.close + 'Dlg');
+      if (job && ['pair', 'login'].includes(t.dataset.close)) api.cancel();
+      if (t.dataset.close === 'ask') api.cancel();
+      return;
+    }
+    if (t.dataset.choice) { closeDlg('askDlg'); return api.answer(t.dataset.choice); }
+    if (t.dataset.app) {
+      const key = t.closest('.app').dataset.key;
+      if (t.dataset.app === 'refresh') return start('refresh_one', { key });
+      if (t.dataset.app === 'reinstall') return start('refresh_one', { key, full: true });
+      if (t.dataset.app === 'remove') { S = await api.remove_app(key); return render(); }
+    }
+  });
+
+  $('menuBtn').onclick = (e) => { e.stopPropagation(); const o = !$('menu').classList.contains('open'); $('menu').classList.toggle('open', o); $('menuBtn').setAttribute('aria-expanded', String(o)); };
+  $('logBtn').onclick = () => openLog();
+  $('cancelBtn').onclick = () => api.cancel();
+  $('fAuto').onclick = () => { if (!job) start(S.schedule ? 'unschedule' : 'schedule'); };
+
+  $('pinOk').onclick = () => {
+    const v = $('pinIn').value.trim();
+    if (!v) return $('pinIn').focus();
+    api.answer(v);
+    $('pairPin').classList.add('hide'); $('pinOk').classList.add('hide');
+    $('pairWait').classList.remove('hide');
+    $('pairWait').querySelector('span').textContent = 'Vérification du code…';
+  };
+  $('pinIn').onkeydown = (e) => { if (e.key === 'Enter') $('pinOk').click(); };
+
+  $('loginOk').onclick = async () => {
+    if (!$('loginCode').classList.contains('hide')) {
+      const v = $('codeIn').value.trim();
+      if (!v) return $('codeIn').focus();
+      api.answer(v);
+      $('loginCode').classList.add('hide'); $('smsBtn').classList.add('hide');
+      $('loginWait').classList.remove('hide');
+      $('loginWait').querySelector('span').textContent = 'Vérification du code…';
+      $('loginOk').disabled = true;
+      return;
+    }
+    const email = $('email').value.trim(), password = $('pass').value;
+    if (!email) return $('email').focus();
+    if (!password) return $('pass').focus();
+    $('loginForm').classList.add('hide');
+    $('loginWait').classList.remove('hide');
+    $('loginWait').querySelector('span').textContent = 'Connexion à Apple…';
+    $('loginOk').disabled = true;
+    $('pass').value = '';
+    if (!(await start('login', { email, password }))) loginReset();
+  };
+  $('smsBtn').onclick = () => {
+    api.answer('sms');
+    $('loginCode').classList.add('hide'); $('smsBtn').classList.add('hide');
+    $('loginWait').classList.remove('hide');
+    $('loginWait').querySelector('span').textContent = 'Envoi du SMS…';
+  };
+  ['email', 'pass', 'codeIn'].forEach((id) => { $(id).onkeydown = (e) => { if (e.key === 'Enter') $('loginOk').click(); }; });
+
+  $('ipaOk').onclick = () => {
+    const p = pendingIpa; if (!p) return;
+    closeDlg('ipaDlg');
+    const revoke = $('revokeIn').value.trim() || undefined;
+    if (p.preset) start('preset', { id: p.preset, revoke }); else start('install', { path: p.path, revoke });
+  };
+  $('askOk').onclick = () => { closeDlg('askDlg'); api.answer($('askIn').value); };
+
+  // glisser-déposer : la page montre la zone ; le chemin complet arrive de Python (événement « dropped »)
+  const drop = $('drop');
+  ['dragenter', 'dragover'].forEach((ev) => document.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add('over'); }));
+  ['dragleave', 'drop'].forEach((ev) => document.addEventListener(ev, (e) => { e.preventDefault(); if (ev === 'drop' || !e.relatedTarget) drop.classList.remove('over'); }));
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    const open = document.querySelector('.veil.open');
+    if (open) open.querySelector('[data-close]').click(); else closeMenu();
+  });
+
+  // ------------------------------------------------------------------ démarrage
+  async function boot(a) {
+    api = a;
+    await refresh();
+    if (S.busy) { job = S.busy; $('stateDot').className = 'state run'; $('jobTitle').textContent = TITLES[job] || job; }
+    const tail = await api.read_log(200);
+    if (tail) appendLog(tail);
+    setInterval(() => { if (!job) refresh(); }, 60000);   // le cadran des jours avance tout seul
+  }
+  if (window.pywebview && window.pywebview.api) boot(window.pywebview.api);
+  else window.addEventListener('pywebviewready', () => boot(window.pywebview.api));
+  window.__boot = boot;   // essais hors Windows (démo)
+})();
+</script>
+</body>
+</html>
