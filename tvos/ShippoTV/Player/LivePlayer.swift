@@ -39,13 +39,14 @@ final class LivePlayer: AVPlayerViewController {
         player = pl
         statusObs = item.observe(\.status, options: [.new]) { [weak self] it, _ in
             DispatchQueue.main.async {
-                if it.status == .failed { self?.fail() }
-                if it.status == .readyToPlay { self?.started = true }
+                if it.status == .failed { NSLog("[direct] lecteur Apple : échec %@", it.error?.localizedDescription ?? "?"); self?.fail() }
+                if it.status == .readyToPlay { NSLog("[direct] lecteur Apple : lecture"); self?.started = true }
             }
         }
         // pas d'image au bout de 12 s : on passe à VLC
         watchdog = Timer.scheduledTimer(withTimeInterval: 12, repeats: false) { [weak self] _ in
             guard let self, !self.started || self.player?.currentItem?.status != .readyToPlay else { return }
+            NSLog("[direct] lecteur Apple : rien au bout de 12 s, VLC prend le relais")
             self.fail()
         }
         pl.play()

@@ -67,7 +67,8 @@ extension AppModel {
 
     static func norm(_ s: String) -> String {
         let f = s.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: Locale(identifier: "fr_FR"))
-        return String(f.unicodeScalars.filter { CharacterSet.alphanumerics.contains($0) || $0 == " " }.map(Character.init))
+        // ponctuation → espace (« d'une » ne doit pas devenir « dune »)
+        return String(f.unicodeScalars.map { CharacterSet.alphanumerics.contains($0) ? Character($0) : " " })
     }
 
     // MARK: - Recherche
@@ -76,11 +77,12 @@ extension AppModel {
 
     func search(_ q: String) -> SearchResults {
         let words = Self.norm(q).split(separator: " ").map(String.init).filter { !$0.isEmpty }
+        // un mot doit commencer comme un mot du titre (« dune » ne trouve pas « Anatomie d'une chute »)
         guard !words.isEmpty else { return SearchResults() }
         var r = SearchResults()
         var scored: [(Int, Int, String)] = []
         let joined = words.joined(separator: " ")
-        for e in searchIndex where words.allSatisfy({ e.norm.contains($0) }) {
+        for e in searchIndex where words.allSatisfy({ e.norm.hasPrefix($0) || e.norm.contains(" " + $0) }) {
             // titre qui commence par la recherche d'abord, puis titres courts
             let score = (e.norm.hasPrefix(joined) ? 0 : 1000) + e.norm.count
             scored.append((e.kind, score, e.key))
@@ -274,6 +276,7 @@ extension AppModel {
         let sub = current(ch)?.0 ?? "En direct"
         let item = PlayerViewController.Item(title: ch.t, subtitle: sub, live: true, sources: sources, start: 0)
         let closed: () -> Void = { Task { _ = try? await Engine.shared.data("/api/player_closed", [:]) } }
+        NSLog("[direct] %@ : %@", ch.t, hls == nil ? "pas de HLS, VLC" : "HLS, lecteur Apple")
         if let u = hls, let url = URL(string: u) {
             LivePlayer.present(url: url, title: ch.t, subtitle: sub, onClose: closed) { [weak self] in
                 // le lecteur Apple n'a pas pu lire ce flux : VLC prend le relais

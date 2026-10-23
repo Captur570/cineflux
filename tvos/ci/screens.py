@@ -59,7 +59,7 @@ def main():
     with open(os.path.join(OUT, "journal.txt"), "w") as f:
         f.write(logs[-200000:])
     with open(os.path.join(OUT, "journal-moteur.txt"), "w") as f:
-        f.write("\n".join(l for l in logs.splitlines() if "[moteur" in l)[-100000:])
+        f.write("\n".join(l for l in logs.splitlines() if "[moteur" in l or "[direct]" in l)[-100000:])
     mock.terminate()
 
 

@@ -112,7 +112,7 @@ class H(BaseHTTPRequestHandler):
         if u.path.startswith("/live/"):
             self.send_response(302); self.send_header("Location", "http://127.0.0.1:8799/hls/index.m3u8?tok=abc"); self.send_header("Content-Length", "0"); self.end_headers(); return
         if u.path.startswith("/hls/"):
-            return self.file(M + "hls/" + u.path[5:], "application/vnd.apple.mpegurl" if u.path.endswith("m3u8") else "video/mp4")
+            return self.file(M + "hls/" + u.path[5:], "application/vnd.apple.mpegurl" if u.path.endswith("m3u8") else "video/mp2t")
         if u.path.startswith("/timeshift/"):
             pass
             return self.file(M + "movie.mp4", "video/mp4")
