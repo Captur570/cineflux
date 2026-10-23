@@ -1,0 +1,15 @@
+name: ATVLoad - état des serveurs d'identification
+on:
+  push:
+    branches: [gui-test]
+jobs:
+  probe:
+    runs-on: windows-latest
+    steps:
+      - shell: pwsh
+        run: |
+          $s = "ani.jkcoxson.com","ani.stikstore.app","ani.sidestore.app","ani.sidestore.io","ani.sidestore.zip","ani.846969.xyz","ani.npeg.us","anisette.wedotstud.io","ani.xu30.top","ani.owoellen.rocks","ani.neoarz.com","ani3server.fly.dev","anisette.crystall1ne.dev","omni.ethxn.xyz"
+          foreach ($h in $s) {
+            try { $r = Invoke-RestMethod "https://$h/v3/client_info" -TimeoutSec 8; "::notice::$h => $($r.client_info)" }
+            catch { "::notice::$h => ERREUR $($_.Exception.Message)" }
+          }
