@@ -25,7 +25,7 @@ body {
   background: var(--bg);
   background-image: radial-gradient(1200px 500px at 85% -10%, rgba(111, 140, 255, .10), transparent 60%);
   color: var(--text); font: 15px/1.5 var(--body);
-  display: grid; grid-template-rows: auto 1fr auto; overflow: hidden;
+  display: grid; grid-template-rows: auto 1fr auto; grid-template-columns: minmax(0, 1fr); overflow: hidden;
   -webkit-user-select: none; user-select: none;
 }
 button { font: inherit; color: inherit; cursor: pointer; }
@@ -62,7 +62,7 @@ header { display: flex; align-items: center; gap: 28px; padding: 18px 28px 14px;
 .menu hr { border: 0; border-top: 1px solid var(--line); margin: 6px 4px; }
 
 /* ---------- corps */
-main { display: grid; grid-template-columns: 1fr 330px; min-height: 0; }
+main { display: grid; grid-template-columns: minmax(0, 1fr) 330px; min-height: 0; min-width: 0; }
 .col { overflow: auto; padding: 26px 28px 30px; }
 .side { border-left: 1px solid var(--line); background: rgba(0,0,0,.12); }
 h1 { font: 600 26px/1.2 var(--num); margin: 0 0 4px; letter-spacing: .01em; }
@@ -120,15 +120,17 @@ footer { border-top: 1px solid var(--line); background: var(--surface); }
 .bar .state.ok { background: var(--ok); }
 .bar .state.err { background: var(--bad); }
 @keyframes spin { to { transform: rotate(360deg); } }
-.bar .txt { flex: 1; min-width: 0; }
-.bar .txt b { font-weight: 600; margin-right: 10px; }
-.bar .txt span { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: inline-block; max-width: 100%; vertical-align: bottom; }
+.bar .txt { flex: 1; min-width: 0; display: flex; gap: 10px; align-items: baseline; overflow: hidden; }
+.bar .txt b { font-weight: 600; white-space: nowrap; flex: none; }
+.bar .txt span { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; }
 .progress { height: 3px; background: var(--line); }
 .progress i { display: block; height: 100%; width: 0; background: var(--go); transition: width .25s; }
 .problem { margin: 0 28px 12px; padding: 12px 14px; border-radius: 12px; background: rgba(239,111,108,.12); border: 1px solid rgba(239,111,108,.35); display: none; }
 .problem.show { display: block; }
 .problem p { margin: 0 0 4px; }
 .problem ul { margin: 6px 0 0; padding-left: 18px; color: #f3c3c1; font-size: 14px; }
+.problem li.raw { list-style: none; margin-left: -18px; margin-top: 8px; color: var(--muted); }
+.problem code { display: block; margin-top: 4px; white-space: pre-wrap; word-break: break-word; font: 12.5px/1.5 Consolas, "Cascadia Mono", monospace; color: #f3c3c1; -webkit-user-select: text; user-select: text; }
 .problem .fix { margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap; }
 pre.log { margin: 0; max-height: 0; overflow: auto; background: #0d1219; color: #b9c3d2; font: 12.5px/1.5 Consolas, "Cascadia Mono", monospace; padding: 0 28px; white-space: pre-wrap; word-break: break-word; transition: max-height .25s ease, padding .25s ease; -webkit-user-select: text; user-select: text; }
 pre.log.open { max-height: 230px; padding: 12px 28px; }
@@ -368,11 +370,11 @@ pre.log.open { max-height: 230px; padding: 12px 28px; }
 
   function fixesFor(text) {
     const t = text.toLowerCase(), out = [];
-    if (/login|session|connexion refus|compte/.test(t)) out.push(['login', 'Se reconnecter']);
+    if (!/80045|503/.test(t) && /login|session|connexion refus|compte/.test(t)) out.push(['login', 'Se reconnecter']);
     if (/pair|appair/.test(t)) out.push(['pair', 'Appairer de nouveau']);
     if (/certificat/.test(t)) out.push(['certs', 'Voir mes certificats']);
     if (/introuvable|aucune apple tv|réveille|connexion à l'apple tv/.test(t)) out.push(['scan', 'Rechercher l\'Apple TV']);
-    if (/plumesign/.test(t)) out.push(['setup', 'Installer le moteur']);
+    if (/plumesign introuvable|ne répond pas comme prévu/.test(t)) out.push(['setup', 'Installer le moteur']);
     return out;
   }
 
@@ -499,7 +501,7 @@ pre.log.open { max-height: 230px; padding: 12px 28px; }
     } else {
       $('stateDot').className = 'state err';
       $('jobTitle').textContent = (TITLES[name] || 'Opération') + ' : échec';
-      showProblem(res.error, jobWarnings, name);
+      showProblem(res.error, jobWarnings, name, res.detail || []);
     }
     if (name === 'pair') closeDlg('pairDlg');
     if (name === 'login') { res.ok ? closeDlg('loginDlg') : loginReset(); }
@@ -509,10 +511,13 @@ pre.log.open { max-height: 230px; padding: 12px 28px; }
     }
   }
 
-  function showProblem(err, warnings, name) {
-    $('probTitle').textContent = friendly(err || 'Échec.');
-    $('probList').innerHTML = warnings.map((w) => `<li>${esc(friendly(w))}</li>`).join('');
-    const fx = fixesFor([err, ...warnings].join(' '));
+  function showProblem(err, warnings, name, detail = []) {
+    const e = String(err || 'Échec.').replace(/\s*\(détails ci-dessus, et dans [^)]*\)\.?/, '.');
+    $('probTitle').textContent = friendly(e);
+    const uniq = [...new Set(warnings.map(friendly))];
+    $('probList').innerHTML = uniq.map((w) => `<li>${esc(w)}</li>`).join('')
+      + (detail.length ? `<li class="raw">Réponse reçue :<code>${detail.map(esc).join('\n')}</code></li>` : '');
+    const fx = fixesFor([err, ...warnings, ...detail].join(' '));
     $('probFix').innerHTML = fx.map(([a, l]) => `<button class="btn" data-act="${a}">${esc(l)}</button>`).join('')
       + `<button class="btn quiet" data-act="openLogPanel">Voir le détail</button><button class="btn quiet" data-act="hideProblem">Fermer</button>`;
     $('problem').classList.add('show');

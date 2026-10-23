@@ -311,7 +311,7 @@ def choose_anisette(state, exclude=()):
             return url
         fallback = fallback or url
     if fallback:
-        warn(f"Aucun serveur « Windows » disponible, j'utilise {fallback} (Apple risque de refuser).")
+        info(f"Serveur d'identification : {fallback}")
         _ANISETTE["url"] = fallback
         return fallback
     raise Fail("Aucun serveur d'identification (anisette) ne répond. Vérifie ta connexion Internet, "
@@ -453,6 +453,10 @@ def find_paired_devices(seconds=6.0):
     return result
 
 
+def looks_like_id(name):
+    return bool(re.fullmatch(r"[0-9A-Fa-f]{8}(-[0-9A-Fa-f]{4}){3}-[0-9A-Fa-f]{12}|[0-9A-Fa-f-]{20,}", name or ""))
+
+
 def resolve_device(state, wanted=None, seconds=6.0):
     info("Recherche de l'Apple TV sur le réseau…")
     devices = find_paired_devices(seconds)
@@ -468,7 +472,10 @@ def resolve_device(state, wanted=None, seconds=6.0):
         if len(devices) > 1:
             warn(f"Plusieurs Apple TV : {', '.join(devices)}. J'utilise {udid} (choisis avec --udid).")
     dev = devices[udid]
-    state["devices"].setdefault(udid, {})["name"] = state["devices"].get(udid, {}).get("name") or dev["name"]
+    cur = state["devices"].get(udid, {}).get("name")
+    if not cur or looks_like_id(cur):   # le nom réseau est souvent un identifiant : on garde celui de l'appairage
+        cur = (state.get("paired") or {}).get("name") or (dev["name"] if not looks_like_id(dev["name"]) else "Apple TV")
+    state["devices"].setdefault(udid, {})["name"] = cur
     ok(f"Apple TV trouvée : {state['devices'][udid]['name']} ({dev['ip']})")
     return udid, dev
 
@@ -510,9 +517,19 @@ def profile_expiry(path):
     return None
 
 
+def apple_refused(out):
+    """Refus d'Apple lié à l'identité de machine (503 / -80045) : réessayer aussitôt n'y change rien."""
+    o = out.lower()
+    return "-80045" in o or is_risk_block(out) or ("503" in o and ("developer" in o or "gsa" in o or "service unavailable" in o))
+
+
 def explain_failure(out):
     o = out.lower()
-    if is_risk_block(out):
+    if "-80045" in o or (apple_refused(out) and not is_risk_block(out)):
+        warn("Apple refuse l'identité de machine fournie par le serveur d'identification (erreur 503 / -80045). "
+             "C'est le problème qui touche tous les outils de ce genre depuis mi-octobre 2026 : réessaie plus tard, "
+             "pas plus de 2-3 fois par heure.")
+    elif is_risk_block(out):
         warn("Apple bloque temporairement (503). Attends quelques heures avant de réessayer.")
     elif is_anisette_error(out):
         warn("Le serveur d'identification (anisette) n'a pas répondu correctement. Réessaie dans quelques "
@@ -686,7 +703,9 @@ def sign_install(state, ipa, udid, dev, refresh=False, revoke=None):
     prov.unlink(missing_ok=True)
     if code != 0 or "Installation complete" not in out:
         explain_failure(out)
-        raise Fail("Échec (détails ci-dessus, et dans " + str(LOG_FILE) + ").")
+        err = Fail("Échec de plumesign (détails ci-dessus, et dans " + str(LOG_FILE) + ").")
+        err.retryable = not apple_refused(out) and not is_anisette_error(out)
+        raise err
     return expiry
 
 
@@ -760,7 +779,9 @@ def cmd_refresh(args, state):
             # --refresh ne réinstalle que le profil (rapide) ; si l'app a disparu on la réinstalle
             try:
                 expiry = sign_install(state, app["ipa"], app["udid"], devices[app["udid"]], refresh=True)
-            except Fail:
+            except Fail as e:
+                if not getattr(e, "retryable", True):
+                    raise   # refus d'Apple : une réinstallation échouerait pareil et compterait un essai de plus
                 info("Renouvellement simple impossible, réinstallation complète…")
                 expiry = sign_install(state, app["ipa"], app["udid"], devices[app["udid"]])
             app["expires"] = expiry or app.get("expires")

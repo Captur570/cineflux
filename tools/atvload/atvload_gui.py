@@ -66,6 +66,7 @@ class GuiIO(A.ConsoleIO):
 
     def write(self, text):
         self.app.emit("log", text)
+        self.out = (getattr(self, "out", "") + text)[-20000:]
         self.tail = (self.tail + text)[-400:]
         for rx, kind in PROMPTS:
             if rx.search(self.tail):
@@ -95,6 +96,20 @@ class GuiIO(A.ConsoleIO):
         old, self.answers = self.answers, queue.Queue()
         old.put(None)
         self.tail = ""
+        self.out = ""
+
+    def error_lines(self):
+        """Les quelques lignes de plumesign qui expliquent l'échec (affichées dans le cadre rouge)."""
+        keep = []
+        for raw in getattr(self, "out", "").splitlines():
+            line = re.sub(r"\x1b\[[0-9;]*m", "", raw).strip()
+            line = re.sub(r"^\[?\d{4}-\d\d-\d\dT[\d:.]+Z?\s+(ERROR|WARN|INFO|DEBUG)\s+[\w:]+\]?\s*", r"\1 ", line)
+            if not line or line.startswith(("INFO", "DEBUG")):
+                continue
+            if re.search(r"error|erreur|panicked|failed|denied|refus|invalid|unauthor|forbidden|\b[45]\d\d\b|-\d{4,5}\b", line, re.I):
+                if line not in keep:
+                    keep.append(line[:300])
+        return keep[-4:]
 
 
 def ns(**kw):
@@ -137,11 +152,14 @@ class Api:
         except A.Fail:
             plume = None
         apps = []
+        def tvname(udid):
+            n = st.get("devices", {}).get(udid, {}).get("name")
+            return n if n and not A.looks_like_id(n) else ((st.get("paired") or {}).get("name") or "Apple TV")
         for key, a in st.get("apps", {}).items():
             left = A.days_left(a)
             apps.append({
                 "key": key, "name": a.get("name"), "bundle": a.get("bundle"),
-                "tv": st.get("devices", {}).get(a.get("udid"), {}).get("name") or (a.get("udid") or "")[:8],
+                "tv": tvname(a.get("udid")),
                 "expires": a.get("expires"), "expires_txt": A.fmt_date(a.get("expires")) if a.get("expires") else None,
                 "days_left": left, "installed": a.get("installed"), "refreshed": a.get("refreshed"),
                 "ipa_ok": bool(a.get("ipa")) and Path(a["ipa"]).is_file(),
@@ -151,7 +169,7 @@ class Api:
             "version": VERSION,
             "plumesign": plume,
             "account": st.get("account"),
-            "devices": [{"udid": u, "name": d.get("name") or u[:8]} for u, d in st.get("devices", {}).items()],
+            "devices": [{"udid": u, "name": tvname(u)} for u in st.get("devices", {})],
             "paired": bool(st.get("devices") or st.get("paired")) or self._has_pairing(),
             "paired_name": (st.get("paired") or {}).get("name"),
             "apps": apps,
@@ -214,10 +232,10 @@ class Api:
             else:
                 raise A.Fail(f"Action inconnue : {job}")
         except A.Fail as e:
-            result.update(ok=False, error=str(e))
+            result.update(ok=False, error=str(e), detail=self._io.error_lines())
             A.log_to_file("XX " + str(e))
         except Exception as e:  # erreur imprévue : on la montre plutôt que de figer la fenêtre
-            result.update(ok=False, error=f"Erreur inattendue : {e}")
+            result.update(ok=False, error=f"Erreur inattendue : {e}", detail=self._io.error_lines())
             A.log_to_file(traceback.format_exc())
         finally:
             self._io.password = None
@@ -235,8 +253,8 @@ class Api:
         A.info(("Réinstallation" if full else "Renouvellement") + f" de {app['name']}…")
         try:
             expiry = A.sign_install(state, app["ipa"], udid, dev, refresh=not full)
-        except A.Fail:
-            if full:
+        except A.Fail as e:
+            if full or not getattr(e, "retryable", True):
                 raise
             A.info("Renouvellement simple impossible, réinstallation complète…")
             expiry = A.sign_install(state, app["ipa"], udid, dev)
