@@ -138,6 +138,7 @@ struct UpNext: Codable, Hashable, Identifiable {
     let pos: Double?
     let dur: Double?
     let next: Bool?
+    let ts: Double?
     var id: String { pid }
 }
 
@@ -151,6 +152,48 @@ struct NowProg: Codable, Hashable {
 
 struct LiveNow: Codable {
     let now: [String: NowProg]?
+}
+
+struct Reminder: Codable, Hashable {
+    let key: String
+    let ch: String?
+    let title: String?
+    let start: Double
+    let end: Double?
+}
+
+/// Lectures en cours sur les autres appareils du groupe (abonnement limité en nombre d'écrans).
+struct OtherDevice: Codable, Hashable, Identifiable {
+    let id: String
+    let name: String?
+    let title: String?
+}
+
+struct Others: Codable {
+    let others: [OtherDevice]
+    let max: Int?
+}
+
+struct GuideProg: Codable, Hashable {
+    let title: String
+    let desc: String?
+    let start: Double
+    let end: Double
+    let tag: String?
+}
+
+struct GuideRow: Codable, Hashable, Identifiable {
+    let key: String
+    let ch: String
+    let logo: String?
+    let progs: [GuideProg]
+    var id: String { key }
+}
+
+struct GuideData: Codable {
+    let t0: Double
+    let t1: Double
+    let rows: [GuideRow]
 }
 
 struct EpgItem: Codable, Hashable {
@@ -230,6 +273,7 @@ struct Config: Codable {
     let profile: String?
     let favs: [String]?
     let progress: [String: WatchProgress]?
+    let reminders: [Reminder]?
     let phone_setup: Bool?
     let has_tmdb: Bool?
     let refreshing: Bool?

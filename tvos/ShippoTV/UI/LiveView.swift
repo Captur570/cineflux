@@ -46,6 +46,7 @@ struct ChannelCard: View {
 struct LiveView: View {
     @EnvironmentObject var model: AppModel
     @State private var group: String?
+    @State private var guideOpen = false
 
     private var groups: [LiveGroup] {
         let favs = model.favChannels
@@ -57,7 +58,13 @@ struct LiveView: View {
         let cur = gs.first { $0.id == group } ?? gs.first
         ScrollView(.vertical) {
             VStack(alignment: .leading, spacing: 24) {
-                Text("Direct").font(.system(size: 60, weight: .heavy)).padding(.top, 30)
+                HStack(alignment: .lastTextBaseline, spacing: 40) {
+                    Text("Direct").font(.system(size: 60, weight: .heavy))
+                    NavigationLink { GuideView() } label: {
+                        Label("Guide des programmes", systemImage: "calendar").font(.system(size: 26, weight: .semibold))
+                    }
+                }
+                .padding(.top, 30)
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 18) {
                         ForEach(gs) { g in
@@ -86,5 +93,9 @@ struct LiveView: View {
         }
         .scrollClipDisabled()
         .task { await model.loadLiveNow() }
+        .navigationDestination(isPresented: $guideOpen) { GuideView() }
+        .task { if model.test?.route == "guide" { try? await Task.sleep(nanoseconds: 1_000_000_000); guideOpen = true } }
+        .onAppear { model.zapList = cur?.items ?? [] }
+        .onChange(of: group) { _, _ in model.zapList = (groups.first { $0.id == group } ?? groups.first)?.items ?? [] }
     }
 }

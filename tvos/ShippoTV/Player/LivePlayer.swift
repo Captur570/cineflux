@@ -10,6 +10,7 @@ final class LivePlayer: AVPlayerViewController {
     private var onClose: (() -> Void)?
     private var onFail: (() -> Void)?
     private var onNoImage: (() -> Void)?
+    private var onZap: ((Int) -> Void)?
     private var statusObs: NSKeyValueObservation?
     private var watchdog: Timer?
     private var failed = false
@@ -21,7 +22,7 @@ final class LivePlayer: AVPlayerViewController {
     private var firstTime: Double?
 
     @MainActor
-    static func present(url: URL, title: String, subtitle: String, onNoImage: (() -> Void)? = nil,
+    static func present(url: URL, title: String, subtitle: String, onNoImage: (() -> Void)? = nil, onZap: ((Int) -> Void)? = nil,
                         onClose: @escaping () -> Void, onFail: @escaping () -> Void) {
         guard let root = UIApplication.shared.connectedScenes.compactMap({ ($0 as? UIWindowScene)?.keyWindow }).first?.rootViewController else { return }
         var top = root
@@ -30,6 +31,7 @@ final class LivePlayer: AVPlayerViewController {
         p.onClose = onClose
         p.onFail = onFail
         p.onNoImage = onNoImage
+        p.onZap = onZap
         p.start(url: url, title: title, subtitle: subtitle)
         current = p
         top.present(p, animated: true)
@@ -101,6 +103,15 @@ final class LivePlayer: AVPlayerViewController {
         player?.pause()
         let cb = onFail
         dismiss(animated: false) { cb?() }
+    }
+
+    /// Haut / bas sur la télécommande : chaîne précédente / suivante (comme sur une télé).
+    override func pressesBegan(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
+        if let t = presses.first?.type, t == .upArrow || t == .downArrow, let z = onZap {
+            z(t == .upArrow ? -1 : 1)
+            return
+        }
+        super.pressesBegan(presses, with: event)
     }
 
     override func viewDidDisappear(_ animated: Bool) {

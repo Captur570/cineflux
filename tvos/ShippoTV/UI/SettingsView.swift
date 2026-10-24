@@ -7,6 +7,7 @@ struct SettingsView: View {
     @State private var code = ""
     @State private var liveVLC = AppModel.liveAlwaysVLC
     @State private var useInfuse = Infuse.always
+    @State private var others: [OtherDevice] = []
     @State private var syncError: String?
 
     var body: some View {
@@ -58,6 +59,20 @@ struct SettingsView: View {
                         }
                     }
                 }
+
+                section("En lecture ailleurs", icon: "rectangle.on.rectangle") {
+                    if others.isEmpty {
+                        Text("Aucune lecture en cours sur vos autres appareils.").font(.system(size: 24)).foregroundStyle(Theme.muted)
+                    } else {
+                        ForEach(others) { o in
+                            HStack(spacing: 24) {
+                                Text("\(o.name ?? "Appareil") : \(o.title ?? "lecture en cours")").font(.system(size: 26, weight: .semibold))
+                                Button("Arrêter") { Task { await model.stopRemote(o); others = (await model.others())?.others ?? [] } }
+                            }
+                        }
+                    }
+                }
+                .task { others = (await model.others())?.others ?? [] }
 
                 section("Direct", icon: "dot.radiowaves.left.and.right") {
                     Text(liveVLC ? "Les chaînes sont lues avec VLC." : "Les chaînes sont lues avec le lecteur de l'Apple TV quand c'est possible, sinon avec VLC (4K, ou image absente).")

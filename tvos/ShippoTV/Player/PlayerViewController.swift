@@ -19,6 +19,7 @@ final class PlayerViewController: UIViewController {
     enum Event { case progress(Double, Double, FlexID), closed(Double, Double, FlexID) }
 
     var onEvent: ((Event) -> Void)?
+    var onZap: ((Int) -> Void)?   // direct : haut / bas = chaîne précédente / suivante
     var onDismiss: (() -> Void)?
 
     private let mp = VLCMediaPlayer()
@@ -215,15 +216,16 @@ final class PlayerViewController: UIViewController {
             togglePlay()
         case .select:
             if !msgLabel.isHidden && !mp.isPlaying && !spinner.isAnimating { retries = 0; open(idx, at: max(0, lastPos - 2)) }
+            else if item.live && onZap != nil { showOptions() }   // direct : le clic ouvre les options (haut/bas servent au zapping)
             else { togglePlay() }
         case .leftArrow:
             seek(-10)
         case .rightArrow:
             seek(10)
         case .downArrow:
-            showOptions()
+            if item.live, let z = onZap { z(1) } else { showOptions() }
         case .upArrow:
-            showControls()
+            if item.live, let z = onZap { z(-1) } else { showControls() }
         default:
             super.pressesBegan(presses, with: event)
         }
@@ -569,8 +571,9 @@ enum PlayerPresenter {
         if let p = current, p.presentingViewController != nil { p.closeFromApp() }
     }
 
-    static func present(_ item: PlayerViewController.Item, onEvent: @escaping (PlayerViewController.Event) -> Void) {
+    static func present(_ item: PlayerViewController.Item, onZap: ((Int) -> Void)? = nil, onEvent: @escaping (PlayerViewController.Event) -> Void) {
         if let p = current, p.presentingViewController != nil {
+            p.onZap = onZap
             p.load(item)
             return
         }
@@ -580,6 +583,7 @@ enum PlayerPresenter {
         let p = PlayerViewController()
         p.modalPresentationStyle = .fullScreen
         p.onEvent = onEvent
+        p.onZap = onZap
         p.onDismiss = { current = nil }
         p.load(item)
         current = p

@@ -10,6 +10,7 @@ final class PlayerViewController: AVPlayerViewController {
     enum Event { case progress(Double, Double, FlexID), closed(Double, Double, FlexID) }
 
     var onEvent: ((Event) -> Void)?
+    var onZap: ((Int) -> Void)?   // direct : haut / bas = chaîne précédente / suivante
     var onDismiss: (() -> Void)?
     private var item: Item?
     private var timer: Timer?
@@ -51,12 +52,13 @@ enum PlayerPresenter {
         if let p = current, p.presentingViewController != nil { p.dismiss(animated: true) }
     }
 
-    static func present(_ item: PlayerViewController.Item, onEvent: @escaping (PlayerViewController.Event) -> Void) {
+    static func present(_ item: PlayerViewController.Item, onZap: ((Int) -> Void)? = nil, onEvent: @escaping (PlayerViewController.Event) -> Void) {
         guard let root = UIApplication.shared.connectedScenes.compactMap({ ($0 as? UIWindowScene)?.keyWindow }).first?.rootViewController else { return }
         var top = root
         while let p = top.presentedViewController { top = p }
         let p = PlayerViewController()
         p.onEvent = onEvent
+        p.onZap = onZap
         p.onDismiss = { current = nil }
         p.load(item)
         current = p
