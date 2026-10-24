@@ -51,6 +51,10 @@ final class AppModel: ObservableObject {
     @Published var epg: [String: [EpgItem]] = [:]
     @Published var seriesDiscover: [DiscoverRow] = []
     @Published var guide: GuideData?
+    @Published var liveEvents: [TVEvent] = []
+    @Published var tonight: [TVEvent] = []
+    @Published var forYou: [ForYouRow] = []
+    var tvStarted = false
     var zapList: [Channel] = []
     var reminded = Set<String>()
     var remindersStarted = false
@@ -131,6 +135,7 @@ final class AppModel: ObservableObject {
         }
         Task { await loadUpNext() }
         startReminders()
+        startTVLoop()
         prefetchPosters()
         startEventLoop()
     }

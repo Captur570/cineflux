@@ -266,6 +266,7 @@ extension AppModel {
     func loadLiveNow() async {
         guard let n: LiveNow = try? await Engine.shared.call("/api/live_now") else { return }
         liveNow = n.now ?? [:]
+        liveEvents = (n.events ?? []).filter { liveIdx[$0.key] != nil }
     }
 
     /// Programme en cours : guide du moteur, sinon le petit guide de la chaîne (demandé à l'affichage).

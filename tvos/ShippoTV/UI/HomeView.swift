@@ -8,28 +8,35 @@ struct HomeView: View {
         ScrollViewReader { proxy in
         ScrollView(.vertical) {
             LazyVStack(alignment: .leading, spacing: 30) {
-                if let f = model.featured { Hero(movie: f).id("top") }
+                if let f = model.featured {
+                    Hero(movie: f).id("top")
+                        .overlay(alignment: .bottomTrailing) { SideTiles().padding(.trailing, 80).padding(.bottom, 40) }
+                }
                 if model.cfg?.has_tmdb != true { TMDBHint().padding(.horizontal, 80) }
-                let resume = model.resumeMovies
-                if !resume.isEmpty { ResumeRow(items: resume) }
-                if !model.upNext.isEmpty { UpNextRow(items: model.upNext).id("upnext") }
-                let favs = model.favMovies
-                if !favs.isEmpty { PosterRow(title: "Ma liste", items: favs) }
-                let favS = model.favSeries
-                if !favS.isEmpty { SeriesRowView(title: "Mes séries", items: favS) }
-                let favC = model.favChannels
-                if !favC.isEmpty { ChannelRow(title: "Mes chaînes", items: favC) }
-                PosterRow(title: "Ajoutés récemment", items: model.recentMovies, limit: 30)
-                if !model.recentSeries.isEmpty { SeriesRowView(title: "Séries ajoutées récemment", items: model.recentSeries, limit: 30) }
-                if let trend = model.seriesDiscover.first, model.series(for: trend).count >= 3 {
-                    SeriesRowView(title: trend.title, items: model.series(for: trend))
+                ContinueRow()
+                let rec = model.recommended
+                if rec.count >= 5 {
+                    MixedRow(title: model.cfg.map { $0.profiles.count > 1 } == true ? "Recommandé pour \(model.cfg?.profiles.first { $0.id == model.profileId }?.name ?? "vous")" : "Recommandé pour vous", items: rec)
                 }
-                ForEach(model.discover, id: \.self) { row in
-                    let items = model.movies(for: row)
-                    if items.count >= 3 { PosterRow(title: row.title, items: items).id("d:" + row.title) }
+                if !model.tonight.isEmpty { EventRow(title: "Ce soir chez vous", icon: "calendar", items: model.tonight) }
+                if !model.liveEvents.isEmpty { EventRow(title: "À la une en direct", icon: "dot.radiowaves.left.and.right", items: Array(model.liveEvents.prefix(16)), live: true) }
+                let disc = model.homeDiscover
+                let because = model.becauseRows
+                ForEach(Array(disc.enumerated()), id: \.element.id) { i, row in
+                    MixedRow(title: row.title, items: row.items, ranked: row.ranked).id("h:" + row.id)
+                    // « Parce que vous avez aimé… » glissées entre les tops, comme sur PC et télé
+                    if i % 3 == 2, i / 3 < because.count { MixedRow(title: because[i / 3].0, items: because[i / 3].1) }
                 }
-                ForEach(model.categoryRows, id: \.id) { row in
-                    PosterRow(title: row.title, items: row.items).id("c:" + row.id)
+                let mine = model.myList
+                if !mine.isEmpty { MixedRow(title: "Ma liste", items: Array(mine.prefix(30))) }
+                PosterRow(title: "Ajoutés récemment chez vous", items: model.recentMovies, limit: 30)
+                if !model.recentSeries.isEmpty { SeriesRowView(title: "Séries mises à jour", items: model.recentSeries, limit: 30) }
+                let chans = model.homeChannels
+                if !chans.isEmpty { ChannelRow(title: model.favChannels.isEmpty ? "Chaînes TV" : "Vos chaînes", items: chans) }
+                if disc.isEmpty {
+                    ForEach(model.categoryRows.prefix(4), id: \.id) { row in
+                        PosterRow(title: row.title, items: row.items).id("c:" + row.id)
+                    }
                 }
             }
             .padding(.bottom, 80)
@@ -37,9 +44,14 @@ struct HomeView: View {
         .scrollClipDisabled()
         .task {
             // essais GitHub : parcours de l'accueil comme à la télécommande (descente rangée par rangée, puis retour en haut)
+            if model.test?.route == "home_top10" {
+                try? await Task.sleep(nanoseconds: 9_000_000_000)
+                withAnimation { proxy.scrollTo("h:movietrend", anchor: .top) }
+                return
+            }
             guard model.test?.route == "scroll" else { return }
             try? await Task.sleep(nanoseconds: 12_000_000_000)
-            let ids = model.discover.filter { model.movies(for: $0).count >= 3 }.map { "d:" + $0.title } + model.categoryRows.map { "c:" + $0.id }
+            let ids = model.homeDiscover.map { "h:" + $0.id }
             for (i, id) in ids.enumerated() {
                 model.testMark = "[rangée \(i + 1)/\(ids.count)]"
                 withAnimation { proxy.scrollTo(id, anchor: .top) }

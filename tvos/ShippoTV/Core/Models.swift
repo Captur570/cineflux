@@ -150,8 +150,58 @@ struct NowProg: Codable, Hashable {
     let e: Double?
 }
 
+struct Team: Codable, Hashable {
+    let n: String
+    let b: String?
+}
+
+struct NextProg: Codable, Hashable {
+    let title: String?
+    let start: Double?
+}
+
+/// Programme mis en avant (« À la une en direct », « Ce soir chez vous ») : calculé par le moteur comme sur PC et télé.
+struct TVEvent: Codable, Hashable, Identifiable {
+    let key: String
+    let ch: String
+    let logo: String?
+    let title: String
+    let desc: String?
+    let start: Double
+    let end: Double
+    let tag: String?
+    let img: String?
+    let poster: String?
+    let vote: Double?
+    let year: Int?
+    let next: NextProg?
+    let teams: [Team]?
+    var id: String { "\(key)@\(Int(start))" }
+}
+
 struct LiveNow: Codable {
     let now: [String: NowProg]?
+    let events: [TVEvent]?
+}
+
+struct Tonight: Codable {
+    let items: [TVEvent]
+}
+
+struct MixedRef: Codable, Hashable {
+    let kind: String
+    let key: String
+}
+
+struct ForYouRow: Codable, Hashable {
+    let title: String?
+    let kind: String?
+    let keys: [String]?
+    let mixed: [MixedRef]?
+}
+
+struct ForYou: Codable {
+    let rows: [ForYouRow]
 }
 
 struct Reminder: Codable, Hashable {
