@@ -259,10 +259,21 @@ extension AppModel {
         if let l: [EpgItem] = try? await Engine.shared.call("/api/epg?id=" + sid.value) { epg[ch.k] = l }
     }
 
+    /// Lecteur du direct : « auto » (lecteur Apple pour le HLS, VLC sinon) ou « vlc » (toujours VLC).
+    static var liveAlwaysVLC: Bool {
+        get { UserDefaults.standard.bool(forKey: "live.vlc") }
+        set { UserDefaults.standard.set(newValue, forKey: "live.vlc") }
+    }
+
     func playChannel(_ ch: Channel) async {
-        // lecteur Apple pour le HLS (.m3u8) quand le fournisseur le propose ; VLC sinon, et en secours
+        // lecteur Apple pour le HLS (.m3u8) quand le fournisseur le propose ; VLC pour la 4K (souvent en HEVC,
+        // que le lecteur Apple ne décode pas en direct : son sans image), pour les chaînes où il a déjà échoué,
+        // ou si l'utilisateur l'a choisi dans les réglages
+        let q = (ch.s[0].q ?? "") + " " + (ch.s[0].n ?? "")
+        let uhd = q.range(of: #"4K|UHD|2160|HEVC|H\.?265|ᵁᴴᴰ"#, options: [.regularExpression, .caseInsensitive]) != nil
+        let noHLS = Self.liveAlwaysVLC || uhd || UserDefaults.standard.bool(forKey: "live.nohls." + ch.k)
         var hls: String?
-        if let st: StreamInfo = try? await Engine.shared.call("/api/stream", ["type": "live", "id": ch.s[0].id.json, "fmt": "m3u8", "title": ch.t]),
+        if !noHLS, let st: StreamInfo = try? await Engine.shared.call("/api/stream", ["type": "live", "id": ch.s[0].id.json, "fmt": "m3u8", "title": ch.t]),
            st.url.lowercased().contains(".m3u8") {
             hls = st.url
         }
@@ -278,7 +289,9 @@ extension AppModel {
         let closed: () -> Void = { Task { _ = try? await Engine.shared.data("/api/player_closed", [:]) } }
         NSLog("[direct] %@ : %@", ch.t, hls == nil ? "pas de HLS, VLC" : "HLS, lecteur Apple")
         if let u = hls, let url = URL(string: u) {
-            LivePlayer.present(url: url, title: ch.t, subtitle: sub, onClose: closed) { [weak self] in
+            LivePlayer.present(url: url, title: ch.t, subtitle: sub,
+                               onNoImage: { UserDefaults.standard.set(true, forKey: "live.nohls." + ch.k) },   // la prochaine fois : VLC d'office
+                               onClose: closed) { [weak self] in
                 // le lecteur Apple n'a pas pu lire ce flux : VLC prend le relais
                 guard !sources.isEmpty else { self?.toast = "Cette chaîne ne répond pas pour le moment"; closed(); return }
                 PlayerPresenter.present(item) { ev in if case .closed = ev { closed() } }

@@ -110,7 +110,11 @@ class H(BaseHTTPRequestHandler):
         if u.path == "/scope.mkv":
             return self.file(M + "scope.mkv", "video/x-matroska")
         if u.path.startswith("/live/"):
-            self.send_response(302); self.send_header("Location", "http://127.0.0.1:8799/hls/index.m3u8?tok=abc"); self.send_header("Content-Length", "0"); self.end_headers(); return
+            # France 3 (3006) : flux avec le son seulement, comme une chaîne 4K HEVC illisible par le lecteur Apple
+            dest = "hls_audio" if "/3006." in u.path else "hls"
+            self.send_response(302); self.send_header("Location", f"http://127.0.0.1:8799/{dest}/index.m3u8?tok=abc"); self.send_header("Content-Length", "0"); self.end_headers(); return
+        if u.path.startswith("/hls_audio/"):
+            return self.file(M + "hls_audio/" + u.path[11:], "application/vnd.apple.mpegurl" if u.path.endswith("m3u8") else "video/mp2t")
         if u.path.startswith("/hls/"):
             return self.file(M + "hls/" + u.path[5:], "application/vnd.apple.mpegurl" if u.path.endswith("m3u8") else "video/mp2t")
         if u.path.startswith("/timeshift/"):

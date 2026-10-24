@@ -223,9 +223,10 @@ struct MainTabs: View {
                 if let e = list.dropFirst().first { await model.playEpisode(x, e, queue: Array(list.dropFirst(2))) }
             }
         case "live": tab = "live"
-        case "live_play":
+        case "live_play", "live_noimg", "live_4k":
             tab = "live"
-            if let ch = model.catalog?.live.first { await model.playChannel(ch) }
+            let key = route == "live_play" ? "france2" : route == "live_noimg" ? "france3" : "tf1"
+            if let ch = model.liveIdx[key] ?? model.catalog?.live.first { await model.playChannel(ch) }
         case "search": tab = "search"
         default: break
         }

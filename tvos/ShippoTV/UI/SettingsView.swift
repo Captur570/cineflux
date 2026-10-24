@@ -5,6 +5,7 @@ struct SettingsView: View {
     @EnvironmentObject var model: AppModel
     @State private var sync: SyncStatus?
     @State private var code = ""
+    @State private var liveVLC = AppModel.liveAlwaysVLC
     @State private var syncError: String?
 
     var body: some View {
@@ -54,6 +55,15 @@ struct SettingsView: View {
                                 }
                             }
                         }
+                    }
+                }
+
+                section("Direct", icon: "dot.radiowaves.left.and.right") {
+                    Text(liveVLC ? "Les chaînes sont lues avec VLC." : "Les chaînes sont lues avec le lecteur de l'Apple TV quand c'est possible, sinon avec VLC (4K, ou image absente).")
+                        .font(.system(size: 24)).foregroundStyle(Theme.muted)
+                    Button(liveVLC ? "Lecteur du direct : VLC" : "Lecteur du direct : automatique") {
+                        liveVLC.toggle()
+                        AppModel.liveAlwaysVLC = liveVLC
                     }
                 }
 

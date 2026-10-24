@@ -45,7 +45,7 @@ def main():
     base = {"server": "127.0.0.1:8799", "user": "demo", "pass": "demo", "tmdb_api": "http://127.0.0.1:8799/3", "tmdb_key": "testkey"}
     # « setup » d'abord : l'appli vient d'être installée, rien n'est configuré
     routes = (("setup", 25), ("home", 30), ("detail", 22), ("player", 26), ("subs", 22),
-              ("series", 22), ("series_detail", 24), ("episode", 26), ("live", 24), ("live_play", 26), ("search", 22))
+              ("series", 22), ("series_detail", 24), ("episode", 26), ("live", 24), ("live_play", 26), ("live_noimg", 30), ("live_4k", 24), ("search", 22))
     for route, wait in routes:
         sh("xcrun", "simctl", "terminate", udid, BUNDLE, check=False)
         extra = {"search": "dune"} if route == "search" else {}
