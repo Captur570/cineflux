@@ -50,6 +50,7 @@ struct AppRoot: View {
             }
         }
         .preferredColorScheme(.dark)
+        .onOpenURL { url in Task { await model?.infuseReturned(url) } }   // retour d'Infuse
         .task {
             guard !checked else { return }
             checked = true
@@ -171,6 +172,7 @@ struct FailedView: View {
 
 /// Barre d'onglets native de l'Apple TV (en haut, en verre).
 struct MainTabs: View {
+    private static var routed = false
     @EnvironmentObject var model: AppModel
     @State private var homePath = NavigationPath()
     @State private var seriesPath = NavigationPath()
@@ -205,7 +207,8 @@ struct MainTabs: View {
 
     /// Mode test (captures GitHub) : ouvrir directement un écran.
     private func testRoute() async {
-        guard let route = model.test?.route else { return }
+        guard let route = model.test?.route, !Self.routed else { return }
+        Self.routed = true   // une seule fois (la tâche repart quand un lecteur se ferme)
         try? await Task.sleep(nanoseconds: 4_000_000_000)
         let dune = model.catalog?.movies.first { $0.t.lowercased().contains("dune") } ?? model.catalog?.movies.first
         switch route {
@@ -223,9 +226,10 @@ struct MainTabs: View {
                 if let e = list.dropFirst().first { await model.playEpisode(x, e, queue: Array(list.dropFirst(2))) }
             }
         case "live": tab = "live"
-        case "live_play":
+        case "live_play", "live_noimg", "live_4k":
             tab = "live"
-            if let ch = model.catalog?.live.first { await model.playChannel(ch) }
+            let key = route == "live_play" ? "france2" : route == "live_noimg" ? "france3" : "tf1"
+            if let ch = model.liveIdx[key] ?? model.catalog?.live.first { await model.playChannel(ch) }
         case "search": tab = "search"
         default: break
         }

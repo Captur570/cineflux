@@ -368,7 +368,7 @@ final class AppModel: ObservableObject {
         return [f] + sorted.filter { $0 != f }
     }
 
-    func play(_ m: Movie, version: Version? = nil, fromStart: Bool = false) async {
+    func play(_ m: Movie, version: Version? = nil, fromStart: Bool = false, infuse: Bool? = nil) async {
         let prog = progress(m)
         var first = version
         if first == nil, let vid = prog?.vid { first = m.v.first { $0.id == vid } }
@@ -381,9 +381,26 @@ final class AppModel: ObservableObject {
         }
         guard !streams.isEmpty else { toast = "Aucune source ne répond pour le moment"; return }
         let start = fromStart ? 0 : (prog?.pos ?? 0)
+        if infuse ?? Infuse.always {
+            let dur = Double(meta["m:" + m.k]?.rt ?? 0) * 60
+            let name = [title(m), m.y.map { "(\($0))" }].compactMap { $0 }.joined(separator: " ") + "." + (order[0].ext ?? "mkv")
+            let body: [String: Any] = ["id": "m:" + m.k, "kind": "movie", "key": m.k, "label": "", "vid": streams[0].id.json]
+            if await Infuse.play(url: streams[0].url, start: start, filename: name, progress: body, dur: dur) { return }
+            toast = Infuse.installed ? "Infuse n'a pas pu s'ouvrir : lecture avec ShippoTV" : "Infuse n'est pas installé : lecture avec ShippoTV"
+        }
         let sub = [m.y.map(String.init), versionLabel(order[0])].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · ")
         let item = PlayerViewController.Item(title: title(m), subtitle: sub, live: false, sources: streams, start: start)
         PlayerPresenter.present(item) { [weak self] ev in self?.playerEvent(ev, movie: m) }
+    }
+
+    /// Retour d'Infuse (shippotv://infuse…) : progression enregistrée comme avec le lecteur intégré.
+    func infuseReturned(_ url: URL) async {
+        guard let r = Infuse.handle(url) else { return }
+        _ = try? await Engine.shared.data("/api/player_closed", [:])
+        if r.error { toast = "Infuse n'a pas pu lire ce fichier"; return }
+        _ = try? await Engine.shared.data("/api/progress", r.body)
+        await reloadConfig()
+        await loadUpNext()
     }
 
     func playURL(_ url: String, title: String) {

@@ -5,6 +5,8 @@ struct SettingsView: View {
     @EnvironmentObject var model: AppModel
     @State private var sync: SyncStatus?
     @State private var code = ""
+    @State private var liveVLC = AppModel.liveAlwaysVLC
+    @State private var useInfuse = Infuse.always
     @State private var syncError: String?
 
     var body: some View {
@@ -54,6 +56,26 @@ struct SettingsView: View {
                                 }
                             }
                         }
+                    }
+                }
+
+                section("Direct", icon: "dot.radiowaves.left.and.right") {
+                    Text(liveVLC ? "Les chaînes sont lues avec VLC." : "Les chaînes sont lues avec le lecteur de l'Apple TV quand c'est possible, sinon avec VLC (4K, ou image absente).")
+                        .font(.system(size: 24)).foregroundStyle(Theme.muted)
+                    Button(liveVLC ? "Lecteur du direct : VLC" : "Lecteur du direct : automatique") {
+                        liveVLC.toggle()
+                        AppModel.liveAlwaysVLC = liveVLC
+                    }
+                }
+
+                section("Films et séries", icon: "play.rectangle") {
+                    Text(useInfuse ? "Les films et les séries s'ouvrent dans Infuse. La reprise est enregistrée quand vous revenez dans ShippoTV."
+                         : (Infuse.installed ? "Lecteur intégré (VLC). Un bouton « Infuse » est aussi proposé sur chaque fiche." : "Lecteur intégré (VLC). Installez Infuse depuis l'App Store pour pouvoir l'utiliser."))
+                        .font(.system(size: 24)).foregroundStyle(Theme.muted)
+                    Button(useInfuse ? "Lire avec : Infuse" : "Lire avec : ShippoTV") {
+                        useInfuse.toggle()
+                        Infuse.always = useInfuse
+                        if useInfuse && !Infuse.installed { model.toast = "Infuse n'est pas installé sur cette Apple TV" }
                     }
                 }
 
