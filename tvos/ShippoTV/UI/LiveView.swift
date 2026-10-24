@@ -65,6 +65,13 @@ struct LiveView: View {
                     }
                 }
                 .padding(.top, 30)
+                if !model.liveEvents.isEmpty {
+                    EventRow(title: "À la une en direct", icon: "dot.radiowaves.left.and.right", items: Array(model.liveEvents.prefix(16)), live: true)
+                        .padding(.horizontal, -80)
+                }
+                if !model.tonight.isEmpty {
+                    EventRow(title: "Ce soir chez vous", icon: "calendar", items: model.tonight).padding(.horizontal, -80)
+                }
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 18) {
                         ForEach(gs) { g in
@@ -92,7 +99,7 @@ struct LiveView: View {
             .padding(.bottom, 80)
         }
         .scrollClipDisabled()
-        .task { await model.loadLiveNow() }
+        .task { await model.loadLiveNow(); await model.loadTonight() }
         .navigationDestination(isPresented: $guideOpen) { GuideView() }
         .task { if model.test?.route == "guide" { try? await Task.sleep(nanoseconds: 1_000_000_000); guideOpen = true } }
         .onAppear { model.zapList = cur?.items ?? [] }
