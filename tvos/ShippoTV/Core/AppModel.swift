@@ -50,6 +50,10 @@ final class AppModel: ObservableObject {
     @Published var liveNow: [String: NowProg] = [:]
     @Published var epg: [String: [EpgItem]] = [:]
     @Published var seriesDiscover: [DiscoverRow] = []
+    @Published var guide: GuideData?
+    var zapList: [Channel] = []
+    var reminded = Set<String>()
+    var remindersStarted = false
     var seriesIdx: [String: Series] = [:]
     var liveIdx: [String: Channel] = [:]
     var recentSeries: [Series] = []
@@ -126,6 +130,7 @@ final class AppModel: ObservableObject {
             prefetchPosters()
         }
         Task { await loadUpNext() }
+        startReminders()
         prefetchPosters()
         startEventLoop()
     }
@@ -369,6 +374,7 @@ final class AppModel: ObservableObject {
     }
 
     func play(_ m: Movie, version: Version? = nil, fromStart: Bool = false, infuse: Bool? = nil) async {
+        if !(await freeToPlay()) { return }
         let prog = progress(m)
         var first = version
         if first == nil, let vid = prog?.vid { first = m.v.first { $0.id == vid } }

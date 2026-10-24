@@ -134,7 +134,17 @@ extension AppModel {
 
     func loadUpNext() async {
         guard let u: [UpNext] = try? await Engine.shared.call("/api/up_next") else { return }
-        upNext = u.filter { seriesIdx[$0.key] != nil }
+        // épisodes commencés (pas encore finis) + épisodes suivants des séries en cours, du plus récent au plus ancien
+        var started: [UpNext] = []
+        for (pid, p) in cfg?.progress ?? [:] where pid.hasPrefix("e:") && p.done != true && (p.pos ?? 0) > 30 {
+            guard let key = p.key, seriesIdx[key] != nil, let ep = p.ep, ep.id != nil else { continue }
+            started.append(UpNext(key: key, label: p.label, sub: p.label, pid: pid, ep: ep, img: nil, pos: p.pos, dur: p.dur, next: false, ts: p.ts))
+        }
+        // une seule carte par série : la plus récente
+        var seen = Set<String>()
+        upNext = (started + u.filter { seriesIdx[$0.key] != nil })
+            .sorted { ($0.ts ?? 0) > ($1.ts ?? 0) }
+            .filter { seen.insert($0.key).inserted }
         want(series: upNext.compactMap { seriesIdx[$0.key] })
     }
 
@@ -180,7 +190,8 @@ extension AppModel {
         return k < list.count ? (list[k], false) : nil
     }
 
-    func playEpisode(_ x: Series, _ e: EpisodeItem, queue: [EpisodeItem], fromStart: Bool = false, infuse: Bool? = nil) async {
+    func playEpisode(_ x: Series, _ e: EpisodeItem, queue: [EpisodeItem], fromStart: Bool = false, infuse: Bool? = nil, checkOthers: Bool = true) async {
+        if checkOthers, !(await freeToPlay()) { return }
         guard let st: StreamInfo = try? await Engine.shared.call("/api/stream", ["type": "episode", "id": e.ep.id.json, "ext": e.ep.ext ?? "mkv", "title": x.t]) else {
             toast = "Cet épisode ne répond pas pour le moment"; return
         }
@@ -218,7 +229,7 @@ extension AppModel {
                     if done, let next = queue.first {
                         toast = "Épisode suivant : \(next.label)"
                         try? await Task.sleep(nanoseconds: 1_500_000_000)
-                        await playEpisode(x, next, queue: Array(queue.dropFirst()))
+                        await playEpisode(x, next, queue: Array(queue.dropFirst()), checkOthers: false)
                     }
                 }
             }
@@ -282,7 +293,8 @@ extension AppModel {
         set { UserDefaults.standard.set(newValue, forKey: "live.vlc") }
     }
 
-    func playChannel(_ ch: Channel) async {
+    func playChannel(_ ch: Channel, checkOthers: Bool = true) async {
+        if checkOthers, !(await freeToPlay()) { return }
         // lecteur Apple pour le HLS (.m3u8) quand le fournisseur le propose ; VLC pour la 4K (souvent en HEVC,
         // que le lecteur Apple ne décode pas en direct : son sans image), pour les chaînes où il a déjà échoué,
         // ou si l'utilisateur l'a choisi dans les réglages
@@ -308,13 +320,14 @@ extension AppModel {
         if let u = hls, let url = URL(string: u) {
             LivePlayer.present(url: url, title: ch.t, subtitle: sub,
                                onNoImage: { UserDefaults.standard.set(true, forKey: "live.nohls." + ch.k) },   // la prochaine fois : VLC d'office
+                               onZap: { [weak self] d in Task { await self?.zap(from: ch, delta: d) } },
                                onClose: closed) { [weak self] in
                 // le lecteur Apple n'a pas pu lire ce flux : VLC prend le relais
                 guard !sources.isEmpty else { self?.toast = "Cette chaîne ne répond pas pour le moment"; closed(); return }
-                PlayerPresenter.present(item) { ev in if case .closed = ev { closed() } }
+                PlayerPresenter.present(item, onZap: { [weak self] d in Task { await self?.zap(from: ch, delta: d) } }) { ev in if case .closed = ev { closed() } }
             }
         } else {
-            PlayerPresenter.present(item) { ev in if case .closed = ev { closed() } }
+            PlayerPresenter.present(item, onZap: { [weak self] d in Task { await self?.zap(from: ch, delta: d) } }) { ev in if case .closed = ev { closed() } }
         }
     }
 }

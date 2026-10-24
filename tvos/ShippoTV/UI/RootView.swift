@@ -231,6 +231,20 @@ struct MainTabs: View {
             let key = route == "live_play" ? "france2" : route == "live_noimg" ? "france3" : "tf1"
             if let ch = model.liveIdx[key] ?? model.catalog?.live.first { await model.playChannel(ch) }
         case "search": tab = "search"
+        case "guide": tab = "live"
+        case "zap":
+            if let ch = model.liveIdx["france2"] {
+                await model.playChannel(ch)
+                // tâche indépendante : celle de l'écran s'arrête dès que le lecteur le recouvre (comme un appui sur la télécommande)
+                Task { @MainActor in
+                    try? await Task.sleep(nanoseconds: 6_000_000_000)
+                    await model.zap(from: ch, delta: -1)
+                }
+            }
+        case "reminder":
+            let now = Date().timeIntervalSince1970
+            _ = try? await Engine.shared.data("/api/reminder", ["on": true, "key": "france2", "ch": "France 2", "title": "Koh-Lanta", "start": now - 30, "end": now + 3000])
+            await model.reloadConfig()
         default: break
         }
     }
