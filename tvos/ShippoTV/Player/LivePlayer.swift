@@ -37,6 +37,8 @@ final class LivePlayer: AVPlayerViewController {
         top.present(p, animated: true)
     }
 
+    @MainActor static var isOpen: Bool { current?.presentingViewController != nil }
+
     @MainActor
     static func closeIfOpen() {
         if let p = current, p.presentingViewController != nil { p.dismiss(animated: true) }

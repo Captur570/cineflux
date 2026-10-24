@@ -69,10 +69,18 @@ extension AppModel {
 
     func zap(from ch: Channel, delta: Int) async {
         guard let next = zapTarget(from: ch, delta: delta) else { return }
+        await closePlayers()
+        await playChannel(next, checkOthers: false)
+    }
+
+    /// Ferme le lecteur ouvert et attend la fin de l'animation (sinon le suivant ne peut pas s'afficher).
+    func closePlayers() async {
         PlayerPresenter.closeIfOpen()
         LivePlayer.closeIfOpen()
-        try? await Task.sleep(nanoseconds: 700_000_000)   // fin de la fermeture avant d'ouvrir la chaîne suivante
-        await playChannel(next, checkOthers: false)
+        for _ in 0..<40 where PlayerPresenter.isOpen || LivePlayer.isOpen {
+            try? await Task.sleep(nanoseconds: 100_000_000)
+        }
+        try? await Task.sleep(nanoseconds: 250_000_000)
     }
 
     // MARK: - Guide des programmes
@@ -118,9 +126,7 @@ extension AppModel {
                               ch == nil ? [Choice(title: "OK", style: .cancel, value: 0)]
                                         : [Choice(title: "Regarder", style: .default, value: 1), Choice(title: "Plus tard", style: .cancel, value: 0)])
             if c == 1, let ch {
-                PlayerPresenter.closeIfOpen()
-                LivePlayer.closeIfOpen()
-                try? await Task.sleep(nanoseconds: 700_000_000)
+                await closePlayers()
                 await playChannel(ch)
             }
         }

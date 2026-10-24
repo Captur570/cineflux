@@ -235,8 +235,11 @@ struct MainTabs: View {
         case "zap":
             if let ch = model.liveIdx["france2"] {
                 await model.playChannel(ch)
-                try? await Task.sleep(nanoseconds: 6_000_000_000)
-                await model.zap(from: ch, delta: -1)
+                // tâche indépendante : celle de l'écran s'arrête dès que le lecteur le recouvre (comme un appui sur la télécommande)
+                Task { @MainActor in
+                    try? await Task.sleep(nanoseconds: 6_000_000_000)
+                    await model.zap(from: ch, delta: -1)
+                }
             }
         case "reminder":
             let now = Date().timeIntervalSince1970

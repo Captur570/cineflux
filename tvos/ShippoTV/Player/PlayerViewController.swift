@@ -567,6 +567,8 @@ final class PaddedLabel: UILabel {
 enum PlayerPresenter {
     private static var current: PlayerViewController?
 
+    static var isOpen: Bool { current?.presentingViewController != nil }
+
     static func closeIfOpen() {
         if let p = current, p.presentingViewController != nil { p.closeFromApp() }
     }
