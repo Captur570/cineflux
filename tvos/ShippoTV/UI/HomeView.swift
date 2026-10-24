@@ -44,6 +44,11 @@ struct HomeView: View {
         .scrollClipDisabled()
         .task {
             // essais GitHub : parcours de l'accueil comme à la télécommande (descente rangée par rangée, puis retour en haut)
+            if model.test?.route == "home_top10" {
+                try? await Task.sleep(nanoseconds: 9_000_000_000)
+                withAnimation { proxy.scrollTo("h:movietrend", anchor: .top) }
+                return
+            }
             guard model.test?.route == "scroll" else { return }
             try? await Task.sleep(nanoseconds: 12_000_000_000)
             let ids = model.homeDiscover.map { "h:" + $0.id }

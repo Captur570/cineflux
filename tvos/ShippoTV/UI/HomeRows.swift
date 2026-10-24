@@ -136,30 +136,38 @@ struct EventCard: View {
             ZStack(alignment: .bottomLeading) {
                 LinearGradient(colors: [Theme.hue(ev.title), Theme.hue(ev.title).opacity(0.35), Theme.bg], startPoint: .topLeading, endPoint: .bottomTrailing)
                 if let teams = ev.teams, teams.count == 2 {
-                    HStack(spacing: 30) {
-                        teamView(teams[0])
-                        Text("VS").font(.system(size: 30, weight: .black)).foregroundStyle(.white.opacity(0.7))
-                        teamView(teams[1])
+                    // écussons en haut, texte en bas : rien ne se chevauche
+                    VStack {
+                        HStack(alignment: .top, spacing: 18) {
+                            teamView(teams[0])
+                            Text("VS").font(.system(size: 26, weight: .black)).foregroundStyle(.white.opacity(0.7))
+                                .fixedSize().padding(.top, 24)
+                            teamView(teams[1])
+                        }
+                        .padding(.top, 14)
+                        Spacer()
                     }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity).padding(.bottom, 70)
+                    .frame(maxWidth: .infinity)
                 } else if let u = TMDBImage.url(ev.img, size: "w780") ?? TMDBImage.url(ev.poster, size: "w342") {
                     RemoteImage(url: u, title: "", showTitle: false)
                 } else if let l = TMDBImage.url(ev.logo, size: "w185") {
-                    RemoteImage(url: l, title: "", showTitle: false, fit: true).padding(.bottom, 60)
+                    VStack { RemoteImage(url: l, title: "", showTitle: false, fit: true).frame(height: width * 0.3); Spacer() }
                 }
-                LinearGradient(colors: [.clear, .black.opacity(0.9)], startPoint: .center, endPoint: .bottom)
-                VStack(alignment: .leading, spacing: 6) {
+                LinearGradient(colors: [.clear, .black.opacity(0.92)], startPoint: UnitPoint(x: 0.5, y: 0.45), endPoint: .bottom)
+                VStack(alignment: .leading, spacing: 5) {
                     HStack(spacing: 8) {
                         if started { Circle().fill(Theme.wine).frame(width: 12, height: 12) }
-                        Text("\(started ? "En direct" : hm(ev.start)) · \(ev.ch)").font(.system(size: 19, weight: .bold)).foregroundStyle(Theme.accent2)
+                        Text("\(started ? "En direct" : hm(ev.start)) · \(ev.ch)").font(.system(size: 19, weight: .bold)).foregroundStyle(Theme.accent2).lineLimit(1)
                         if model.hasReminder(ev.key, ev.start) { Image(systemName: "bell.fill").font(.system(size: 18)).foregroundStyle(Theme.accent2) }
                     }
-                    Text(ev.title).font(.system(size: 25, weight: .bold)).lineLimit(1)
-                    Text([ev.tag, ev.year.map(String.init), ev.vote.map { String(format: "★ %.1f", $0) }].compactMap { $0 }.joined(separator: " · "))
-                        .font(.system(size: 18)).foregroundStyle(Theme.muted).lineLimit(1)
+                    Text(ev.title).font(.system(size: 24, weight: .bold)).lineLimit(1)
                     if started { ProgressBar(value: min(1, (now - ev.start) / max(1, ev.end - ev.start))) }
+                    else {
+                        Text([ev.tag, ev.year.map(String.init), ev.vote.map { String(format: "★ %.1f", $0) }].compactMap { $0 }.joined(separator: " · "))
+                            .font(.system(size: 18)).foregroundStyle(Theme.muted).lineLimit(1)
+                    }
                 }
-                .padding(18)
+                .padding(16)
             }
             .frame(width: width, height: width * 0.56)
         }
@@ -167,14 +175,15 @@ struct EventCard: View {
     }
 
     private func teamView(_ t: Team) -> some View {
-        VStack(spacing: 10) {
+        let side = width * 0.17
+        return VStack(spacing: 6) {
             if let u = TMDBImage.url(t.b, size: "w185") {
-                RemoteImage(url: u, title: "", showTitle: false, fit: true).frame(width: 110, height: 110)
+                RemoteImage(url: u, title: "", showTitle: false, fit: true).frame(width: side, height: side)
             } else {
-                Text(String(t.n.prefix(3)).uppercased()).font(.system(size: 34, weight: .black)).frame(width: 110, height: 110)
+                Text(String(t.n.prefix(3)).uppercased()).font(.system(size: side * 0.32, weight: .black)).frame(width: side, height: side)
                     .background(Color.white.opacity(0.12), in: Circle())
             }
-            Text(t.n).font(.system(size: 20, weight: .bold)).lineLimit(1).frame(width: 160)
+            Text(t.n).font(.system(size: 16, weight: .bold)).lineLimit(1).frame(width: width * 0.32)
         }
     }
 
