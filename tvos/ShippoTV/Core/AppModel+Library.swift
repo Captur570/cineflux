@@ -180,12 +180,19 @@ extension AppModel {
         return k < list.count ? (list[k], false) : nil
     }
 
-    func playEpisode(_ x: Series, _ e: EpisodeItem, queue: [EpisodeItem], fromStart: Bool = false) async {
+    func playEpisode(_ x: Series, _ e: EpisodeItem, queue: [EpisodeItem], fromStart: Bool = false, infuse: Bool? = nil) async {
         guard let st: StreamInfo = try? await Engine.shared.call("/api/stream", ["type": "episode", "id": e.ep.id.json, "ext": e.ep.ext ?? "mkv", "title": x.t]) else {
             toast = "Cet épisode ne répond pas pour le moment"; return
         }
         let p = progress(e.ep)
         let start = fromStart || p?.done == true ? 0 : (p?.pos ?? 0)
+        if infuse ?? Infuse.always {
+            let body: [String: Any] = ["id": "e:" + e.ep.id.value, "kind": "series", "key": x.k, "label": e.label,
+                                       "ep": ["id": e.ep.id.json, "ext": e.ep.ext ?? "mkv", "sid": e.sid.json], "vid": e.ep.id.json]
+            let name = "\(title(x)) \(e.short).\(e.ep.ext ?? "mkv")"
+            if await Infuse.play(url: st.url, start: start, filename: name, progress: body, dur: Self.seconds(e.ep.dur)) { return }
+            toast = Infuse.installed ? "Infuse n'a pas pu s'ouvrir : lecture avec ShippoTV" : "Infuse n'est pas installé : lecture avec ShippoTV"
+        }
         let item = PlayerViewController.Item(title: title(x), subtitle: e.label, live: false,
                                              sources: [.init(url: st.url, label: "Épisode", id: e.ep.id)], start: start > 30 ? start : 0)
         PlayerPresenter.present(item) { [weak self] ev in self?.episodeEvent(ev, series: x, ep: e, queue: queue) }
@@ -215,6 +222,16 @@ extension AppModel {
                     }
                 }
             }
+        }
+    }
+
+    /// « 00:47:00 » → secondes (0 si inconnu).
+    static func seconds(_ d: String?) -> Double {
+        let parts = (d ?? "").split(separator: ":").compactMap { Double($0) }
+        switch parts.count {
+        case 3: return parts[0] * 3600 + parts[1] * 60 + parts[2]
+        case 2: return parts[0] * 60 + parts[1]
+        default: return 0
         }
     }
 
@@ -260,7 +277,7 @@ extension AppModel {
     }
 
     /// Lecteur du direct : « auto » (lecteur Apple pour le HLS, VLC sinon) ou « vlc » (toujours VLC).
-    static var liveAlwaysVLC: Bool {
+    nonisolated static var liveAlwaysVLC: Bool {
         get { UserDefaults.standard.bool(forKey: "live.vlc") }
         set { UserDefaults.standard.set(newValue, forKey: "live.vlc") }
     }

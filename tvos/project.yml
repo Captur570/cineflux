@@ -27,6 +27,10 @@ targets:
         NSAppTransportSecurity:
           NSAllowsArbitraryLoads: true
         ITSAppUsesNonExemptEncryption: false
+        LSApplicationQueriesSchemes: [infuse]
+        CFBundleURLTypes:
+          - CFBundleURLName: app.shippotv.atv
+            CFBundleURLSchemes: [shippotv]
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: app.shippotv.atv

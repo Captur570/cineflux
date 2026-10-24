@@ -150,6 +150,11 @@ struct SeriesDetailView: View {
                         } else if loading {
                             ProgressView().padding(.horizontal, 40)
                         }
+                        if let t = target, Infuse.installed && !Infuse.always {
+                            Button { Task { await model.playEpisode(series, t.0, queue: [], infuse: true) } } label: {
+                                Label("Infuse", systemImage: "arrow.up.forward.app").font(.system(size: 28, weight: .semibold))
+                            }
+                        }
                         Button { Task { await model.toggleFav("series", series.k) } } label: {
                             Label(model.isFav("series", series.k) ? "Dans ma liste" : "Ma liste", systemImage: model.isFav("series", series.k) ? "checkmark" : "plus")
                                 .font(.system(size: 28, weight: .semibold))

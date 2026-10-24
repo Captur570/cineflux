@@ -45,6 +45,11 @@ struct MovieDetailView: View {
                                 Label("Depuis le début", systemImage: "backward.end.fill").font(.system(size: 28, weight: .semibold))
                             }
                         }
+                        if Infuse.installed && !Infuse.always {
+                            Button { Task { await model.play(movie, infuse: true) } } label: {
+                                Label("Infuse", systemImage: "arrow.up.forward.app").font(.system(size: 28, weight: .semibold))
+                            }
+                        }
                         Button { Task { await model.toggleFav(movie) } } label: {
                             Label(model.isFav(movie) ? "Dans ma liste" : "Ma liste", systemImage: model.isFav(movie) ? "checkmark" : "plus")
                                 .font(.system(size: 28, weight: .semibold))

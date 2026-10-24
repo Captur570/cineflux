@@ -50,6 +50,7 @@ struct AppRoot: View {
             }
         }
         .preferredColorScheme(.dark)
+        .onOpenURL { url in Task { await model?.infuseReturned(url) } }   // retour d'Infuse
         .task {
             guard !checked else { return }
             checked = true
