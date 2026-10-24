@@ -172,6 +172,7 @@ struct FailedView: View {
 
 /// Barre d'onglets native de l'Apple TV (en haut, en verre).
 struct MainTabs: View {
+    private static var routed = false
     @EnvironmentObject var model: AppModel
     @State private var homePath = NavigationPath()
     @State private var seriesPath = NavigationPath()
@@ -206,7 +207,8 @@ struct MainTabs: View {
 
     /// Mode test (captures GitHub) : ouvrir directement un écran.
     private func testRoute() async {
-        guard let route = model.test?.route else { return }
+        guard let route = model.test?.route, !Self.routed else { return }
+        Self.routed = true   // une seule fois (la tâche repart quand un lecteur se ferme)
         try? await Task.sleep(nanoseconds: 4_000_000_000)
         let dune = model.catalog?.movies.first { $0.t.lowercased().contains("dune") } ?? model.catalog?.movies.first
         switch route {
