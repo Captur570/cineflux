@@ -36,7 +36,7 @@ jobs:
           K: ${{ secrets.TMDB_KEY }}
         run: |
           test -n "$K" || { echo "secret manquant"; exit 1; }
-          P=$(printf 'shippotv-android-ks:%s' "$K" | sha256sum | cut -c1-32)
+          export P=$(printf 'shippotv-android-ks:%s' "$K" | sha256sum | cut -c1-32)
           echo "::add-mask::$P"
           echo "KS_PASS=$P" >> $GITHUB_ENV
           TAG=android-signing
@@ -88,7 +88,7 @@ jobs:
           cat pub/android-version.json
           mkdir -p essai && cp android/ci/out/* essai/ 2>/dev/null || true
           [ -f android/build.log ] && grep -E "^[ew]: |error|BUILD|What went wrong" android/build.log | tail -200 > essai/fabrication-resume.txt
-          cd essai && zip -q ../essai.zip * ; cd ..
+          (cd essai && zip -q ../essai.zip * ) || true
           ls -la pub essai
       - name: Résultats d'essai (branche autre que main)
         if: always() && github.ref != 'refs/heads/main'
@@ -98,7 +98,7 @@ jobs:
           TAG=android-essais
           gh release view $TAG >/dev/null 2>&1 || gh release create $TAG --prerelease --target "${{ github.sha }}" --title "Android - essais" --notes "Résultats d'essais (pas une version à installer)."
           F=""; [ -f essai.zip ] && F="essai.zip"; [ -f pub/ShippoTV-Android.apk ] && F="$F pub/ShippoTV-Android.apk"
-          [ -n "$F" ] && gh release upload $TAG $F --clobber
+          if [ -n "$F" ]; then gh release upload $TAG $F --clobber; fi
       - name: Publication (bêta)
         if: success() && github.ref == 'refs/heads/main'
         env:
