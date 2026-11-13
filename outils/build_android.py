@@ -36,7 +36,8 @@ def main():
     d = build_ios.defaults()
     d["update_repo"] = ""          # mises à jour gérées par l'appli Android elle-même (release android-beta)
     with open(os.path.join(OUT, "defaults.js"), "w", encoding="utf-8") as f:
-        f.write("window.SHIPPO_DEFAULTS = " + json.dumps(d) + ";\nwindow.SHIPPO_PLATFORM = 'android';\n")
+        f.write("window.SHIPPO_DEFAULTS = " + json.dumps(d) + ";\nwindow.SHIPPO_PLATFORM = 'android';\n"
+                "if (window.SHIPPO_TEST && SHIPPO_TEST.tmdb_api) SHIPPO_DEFAULTS.tmdb_api = SHIPPO_TEST.tmdb_api;\n")
     with open(os.path.join(ROOT, "web", "index.html"), encoding="utf-8") as f:
         html = f.read()
     html = html.replace('<meta name="viewport" content="width=device-width, initial-scale=1">',

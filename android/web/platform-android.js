@@ -34,6 +34,7 @@
         else if (T.route === 'settings') go('settings');
         else if (T.route === 'player') playMovie(dune);
         else if (T.route === 'live_play') playLive(S.cat.live.find(c => c.k === 'france2') || S.cat.live[0], 0);
+        else if (T.route === 'js') { try { (0, eval)(atob(T.js64)); } catch (e) { console.error('[essai] ' + e); } }
         else if (T.route === 'probe') native({ cmd: 'play', title: 'Essai du choix du lecteur', sub: T.probe || '', kind: 'movie', live: false,
           streams: [{ url: 'http://' + T.server + '/' + (T.probe || 'scope.mkv'), label: T.label || '' }], start: 0 });
       }, 4000);
