@@ -377,6 +377,7 @@ class PlayerHost(private val act: MainActivity) : EngineCb {
 
     private fun paintButtons() {
         btnViews.forEachIndexed { i, v -> pill(mode == Mode.CONTROLS && focusRow == 1 && i == btn, v) }
+        btnViews.getOrNull(btn)?.let { v -> (buttons.parent as? android.widget.HorizontalScrollView)?.let { sv -> sv.post { sv.smoothScrollTo((v.left - dp(120f).toInt()).coerceAtLeast(0), 0) } } }
         val e = engine ?: return
         refreshTime(e.pos, e.dur)
     }

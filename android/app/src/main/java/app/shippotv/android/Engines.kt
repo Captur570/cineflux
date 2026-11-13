@@ -65,6 +65,15 @@ fun langName(code: String?): String {
     return if (n.isBlank() || n.equals(code, true)) code.uppercase() else n.replaceFirstChar { it.uppercase() }
 }
 
+/** Noms de pistes de VLC (« Track 1 - [French] ») en français lisible. */
+fun vlcName(n: String?, def: String): String {
+    if (n.isNullOrBlank()) return def
+    val lang = Regex("\\[(.+?)]").find(n)?.groupValues?.get(1)
+    val rest = n.replace(Regex("\\s*-?\\s*\\[.+?]"), "").replace(Regex("^Track\\s*(\\d+)$", RegexOption.IGNORE_CASE), "Piste $1").trim()
+    val l = lang?.let { x -> Locale.getAvailableLocales().firstOrNull { it.getDisplayLanguage(Locale.ENGLISH).equals(x, true) }?.getDisplayLanguage(Locale.FRENCH)?.replaceFirstChar { it.uppercase() } ?: x }
+    return listOfNotNull(l, rest.takeIf { it.isNotBlank() && (l == null || !rest.startsWith("Piste", true)) }).joinToString(" · ").ifBlank { def }
+}
+
 private fun isFrench(s: String?) = s != null && (s.startsWith("fr", true) || s.contains("fran", true) || s.contains("french", true))
 
 /* ------------------------------------------------------------------ lecteur Android (Media3 / ExoPlayer) */
@@ -239,9 +248,9 @@ class VlcEngine(ctx: Context, private val box: FrameLayout, private val cb: Engi
     override val hasVideo get() = vout || (mp.videoTracksCount > 0)
 
     override fun audio(): List<Tr> = (mp.audioTracks ?: emptyArray()).filter { it.id >= 0 }
-        .map { Tr(it.name ?: "Piste", it.name ?: "", it.id == mp.audioTrack, it.id) }
+        .map { Tr(vlcName(it.name, "Piste"), it.name ?: "", it.id == mp.audioTrack, it.id) }
     override fun text(): List<Tr> = (mp.spuTracks ?: emptyArray()).filter { it.id >= 0 }
-        .map { Tr(it.name ?: "Sous-titres", it.name ?: "", it.id == mp.spuTrack, it.id) }
+        .map { Tr(vlcName(it.name, "Sous-titres"), it.name ?: "", it.id == mp.spuTrack, it.id) }
     override fun selectAudio(t: Tr) { mp.setAudioTrack(t.ref as Int) }
     override fun selectText(t: Tr?) { mp.setSpuTrack((t?.ref as? Int) ?: -1) }
 

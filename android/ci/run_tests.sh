@@ -83,16 +83,17 @@ adb shell "echo 1 > /data/local/tmp/shippotv-essais; chmod 644 /data/local/tmp/s
 run setup 20 ""; mv $OUT/setup.png $OUT/visite_01_premier_lancement.png
 for i in 1 2 3 4 5 6; do adb shell input keyevent KEYCODE_DPAD_DOWN; sleep 0.4; done; sleep 1.5; shot visite_02_premier_lancement_code
 # ---- lecteur : barre de commandes, avance rapide, langues et sous-titres
-run player 14 ""; mv $OUT/player.png $OUT/lecteur_01_lecture.png
+run player 10 ""; mv $OUT/player.png $OUT/lecteur_01_lecture.png
 adb shell input keyevent KEYCODE_DPAD_CENTER; sleep 1.5; shot lecteur_02_pause_commandes
-adb shell input keyevent KEYCODE_DPAD_CENTER; sleep 1; adb shell input keyevent KEYCODE_BACK; sleep 1
-adb shell input keyevent KEYCODE_DPAD_RIGHT; sleep 0.3; adb shell input keyevent KEYCODE_DPAD_RIGHT; sleep 0.3; adb shell input keyevent KEYCODE_DPAD_RIGHT; sleep 0.3; shot lecteur_03_avance_rapide
-sleep 2; adb shell input keyevent KEYCODE_BACK; sleep 0.6; adb shell input keyevent KEYCODE_DPAD_DOWN; sleep 1; shot lecteur_04_commandes_langue
+adb shell input keyevent KEYCODE_DPAD_RIGHT; sleep 0.4; adb shell input keyevent KEYCODE_DPAD_RIGHT; sleep 0.4; adb shell input keyevent KEYCODE_DPAD_RIGHT; sleep 1; shot lecteur_04_commandes_langue
 adb shell input keyevent KEYCODE_DPAD_CENTER; sleep 1.2; shot lecteur_05_panneau_langue
 adb shell input keyevent KEYCODE_BACK; sleep 0.6; adb shell input keyevent KEYCODE_DPAD_RIGHT; sleep 0.5; adb shell input keyevent KEYCODE_DPAD_CENTER; sleep 1.2; shot lecteur_06_panneau_sous_titres
 adb shell input keyevent KEYCODE_BACK; sleep 0.6
 for k in 1 2 3 4; do adb shell input keyevent KEYCODE_DPAD_RIGHT; sleep 0.4; done; adb shell input keyevent KEYCODE_DPAD_CENTER; sleep 1.2; shot lecteur_07_panneau_lecteur
-adb shell input keyevent KEYCODE_BACK; sleep 0.5; adb shell input keyevent KEYCODE_BACK; sleep 0.5; adb shell input keyevent KEYCODE_BACK; sleep 1
+adb shell input keyevent KEYCODE_BACK; sleep 0.5; adb shell input keyevent KEYCODE_BACK; sleep 0.8
+adb shell input keyevent KEYCODE_MEDIA_PLAY; sleep 0.5
+adb shell input keyevent KEYCODE_DPAD_RIGHT; sleep 0.3; adb shell input keyevent KEYCODE_DPAD_RIGHT; sleep 0.5; shot lecteur_03_avance_rapide
+sleep 2; adb shell input keyevent KEYCODE_BACK; sleep 0.5; adb shell input keyevent KEYCODE_BACK; sleep 1
 run probe 4 ',"probe":"probe/aac_en_srtfr.mkv","label":"1080p · VOSTFR"'; rm -f $OUT/probe.png
 adb shell input keyevent KEYCODE_DPAD_DOWN; sleep 0.6; adb shell input keyevent KEYCODE_DPAD_RIGHT; sleep 0.5; adb shell input keyevent KEYCODE_DPAD_CENTER; sleep 1.2; shot lecteur_08_sous_titres_vostfr
 js 21_direct_commandes 24 "playLive(S.cat.live[1], 0)" KEYCODE_DPAD_CENTER
