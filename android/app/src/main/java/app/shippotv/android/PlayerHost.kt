@@ -314,6 +314,7 @@ class PlayerHost(private val act: MainActivity) : EngineCb {
                     nextHint.visibility = View.VISIBLE
                 } else nextHint.visibility = View.GONE
             }
+            if (mode == Mode.CONTROLS) buildButtons()       // libellés à jour (pistes connues, pause…)
             h.postDelayed(this, 500)
         }
     }
@@ -336,6 +337,7 @@ class PlayerHost(private val act: MainActivity) : EngineCb {
     private var btn = 0
     private data class Btn(val id: String, val label: String, val act: () -> Unit)
     private var btns = listOf<Btn>()
+    private var btnSig = ""
     private val btnViews = mutableListOf<TextView>()
     private var preview: Long? = null           // position visée pendant l'avance rapide
     private var scrubTimes = 0
@@ -364,6 +366,9 @@ class PlayerHost(private val act: MainActivity) : EngineCb {
         if (it.next) list += Btn("next", "Épisode suivant ⏭") { e?.let { x -> act.emitPlayer(JSONObject().put("type", "next").put("pos", x.pos / 1000.0).put("dur", x.dur / 1000.0).put("idx", idx)) } }
         list += Btn("player", "Lecteur · " + (e?.name ?: "…")) { panelPlayer() }
         val keepId = btns.getOrNull(btn)?.id
+        val sig = list.joinToString("|") { b -> b.label }
+        if (sig == btnSig && btnViews.size == list.size) { btns = list; paintButtons(); return }
+        btnSig = sig
         btns = list
         btn = btns.indexOfFirst { b -> b.id == keepId }.takeIf { x -> x >= 0 } ?: btn.coerceIn(0, btns.size - 1)
         buttons.removeAllViews(); btnViews.clear()
