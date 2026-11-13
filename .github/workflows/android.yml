@@ -3,7 +3,7 @@
 name: Appli Android TV
 on:
   push:
-    branches: [main]
+    branches: [main, android]
     paths: ["android/**", "tv/**", "web/**", "outils/build_android.py", "outils/build_ios.py", ".github/workflows/android.yml", "version.txt", "ios/ci/mock.py"]
   workflow_dispatch:
 permissions:
