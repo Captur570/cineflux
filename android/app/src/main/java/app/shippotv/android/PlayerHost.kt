@@ -18,6 +18,10 @@ import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ProgressBar
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.RectF
+import android.content.Context as Ctx
 import android.widget.TextView
 import androidx.media3.common.util.UnstableApi
 import org.json.JSONObject
@@ -37,9 +41,17 @@ class PlayerHost(private val act: MainActivity) : EngineCb {
     private val overlay = FrameLayout(act)
     private val title = text(30f, true)
     private val sub = text(19f, false, 0xFFD0D0D0.toInt())
-    private val bar = ProgressBar(act, null, android.R.attr.progressBarStyleHorizontal).apply { max = 1000 }
-    private val time = text(18f, true)
-    private val engineLabel = text(16f, false, 0xFFB0B0B0.toInt())
+    private val seek = SeekView(act)
+    private val time = text(19f, true)
+    private val remain = text(17f, false, 0xFFC8C8C8.toInt())
+    private val buttons = LinearLayout(act).apply { orientation = LinearLayout.HORIZONTAL }
+    private val panel = LinearLayout(act).apply {
+        orientation = LinearLayout.VERTICAL
+        background = GradientDrawable().apply { setColor(0xF0141016.toInt()) }
+    }
+    private val panelTitle = text(26f, true)
+    private val panelList = LinearLayout(act).apply { orientation = LinearLayout.VERTICAL }
+    private val panelScroll = android.widget.ScrollView(act).apply { isVerticalScrollBarEnabled = false; isFocusable = false }
     private val spinner = ProgressBar(act)
     private val msg = text(24f, true).apply { gravity = Gravity.CENTER }
     private val banner = text(17f, false).apply {
@@ -78,21 +90,27 @@ class PlayerHost(private val act: MainActivity) : EngineCb {
         overlay.addView(top, FrameLayout.LayoutParams(-1, -2, Gravity.TOP))
         val bottom = LinearLayout(act).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(48f).toInt(), dp(60f).toInt(), dp(48f).toInt(), dp(32f).toInt())
-            background = GradientDrawable(GradientDrawable.Orientation.BOTTOM_TOP, intArrayOf(0xCC000000.toInt(), 0x00000000))
-            addView(bar, LinearLayout.LayoutParams(-1, dp(8f).toInt()))
-            val row = LinearLayout(act).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, dp(10f).toInt(), 0, 0) }
+            setPadding(dp(48f).toInt(), dp(90f).toInt(), dp(48f).toInt(), dp(30f).toInt())
+            background = GradientDrawable(GradientDrawable.Orientation.BOTTOM_TOP, intArrayOf(0xE6000000.toInt(), 0x00000000))
+            addView(seek, LinearLayout.LayoutParams(-1, dp(46f).toInt()))
+            val row = LinearLayout(act).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, dp(2f).toInt(), 0, dp(16f).toInt()) }
             row.addView(time, LinearLayout.LayoutParams(0, -2, 1f))
-            row.addView(engineLabel)
+            row.addView(remain)
             addView(row)
+            addView(android.widget.HorizontalScrollView(act).apply { isHorizontalScrollBarEnabled = false; isFocusable = false; addView(buttons) })
         }
         overlay.addView(bottom, FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM))
+        panel.setPadding(dp(28f).toInt(), dp(40f).toInt(), dp(28f).toInt(), dp(28f).toInt())
+        panel.addView(panelTitle, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(18f).toInt() })
+        panelScroll.addView(panelList)
+        panel.addView(panelScroll, LinearLayout.LayoutParams(-1, 0, 1f))
         root.addView(spinner, FrameLayout.LayoutParams(dp(64f).toInt(), dp(64f).toInt(), Gravity.CENTER))
         root.addView(msg, FrameLayout.LayoutParams(-1, -2, Gravity.CENTER).apply { leftMargin = dp(80f).toInt(); rightMargin = dp(80f).toInt() })
         root.addView(banner, FrameLayout.LayoutParams(-2, -2, Gravity.TOP or Gravity.END).apply { topMargin = dp(36f).toInt(); rightMargin = dp(40f).toInt() })
         root.addView(nextHint, FrameLayout.LayoutParams(-2, -2, Gravity.BOTTOM or Gravity.END).apply { bottomMargin = dp(110f).toInt(); rightMargin = dp(48f).toInt() })
         banner.visibility = View.GONE; nextHint.visibility = View.GONE; msg.visibility = View.GONE
-        bar.progressDrawable?.setTint(0xFFD6375F.toInt())
+        root.addView(panel, FrameLayout.LayoutParams(dp(460f).toInt(), -1, Gravity.END))
+        panel.visibility = View.GONE
     }
 
     private fun dp(v: Float) = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, v, act.resources.displayMetrics)
@@ -112,6 +130,7 @@ class PlayerHost(private val act: MainActivity) : EngineCb {
         if (streams.isEmpty()) return
         item = Item(m.optString("title"), m.optString("sub"), m.optString("kind", "movie"), m.optString("key"),
             m.optBoolean("live"), streams, (m.optDouble("start", 0.0) * 1000).toLong(), m.optBoolean("next"), m.optString("nextLabel"))
+        mode = Mode.HIDDEN; preview = null; panel.visibility = View.GONE
         if (!shown) {
             act.root.addView(root, FrameLayout.LayoutParams(-1, -1))
             shown = true
@@ -139,6 +158,7 @@ class PlayerHost(private val act: MainActivity) : EngineCb {
         act.webView.requestFocus()
         shown = false
         item = null
+        mode = Mode.HIDDEN; preview = null; panel.visibility = View.GONE
     }
 
     private fun release() {
@@ -164,7 +184,7 @@ class PlayerHost(private val act: MainActivity) : EngineCb {
         msg.visibility = View.GONE
         title.text = it.title
         sub.text = listOf(it.sub, if (it.streams.size > 1) s.label else "").filter { x -> x.isNotBlank() }.joinToString(" · ")
-        showOverlay()
+        if (mode == Mode.HIDDEN) { overlay.alpha = 1f; overlay.visibility = View.VISIBLE; h.removeCallbacks(introHide); h.postDelayed(introHide, 4000) }
         Net.pool.execute {
             val pref = prefs.getString("defaut", "auto") ?: "auto"
             val remembered = prefs.getString(memoryKey(it, s), null)
@@ -188,7 +208,6 @@ class PlayerHost(private val act: MainActivity) : EngineCb {
         engineKind = d.engine
         tried += d.engine
         engine = if (d.engine == "vlc") VlcEngine(act, video, this) else Media3Engine(act, video, this)
-        engineLabel.text = "Lecteur ${engine!!.name}"
         showBanner("Lecteur ${engine!!.name} · ${d.reason}")
         try { engine!!.start(s.url, startMs) } catch (e: Exception) { onError(e.message ?: "erreur") }
     }
@@ -253,17 +272,12 @@ class PlayerHost(private val act: MainActivity) : EngineCb {
         spinner.visibility = View.GONE
         msg.text = text
         msg.visibility = View.VISIBLE
-        showOverlay(sticky = true)
+        showControls(1, "version")
     }
 
     /* ------------------------------------------------------------------ affichage */
 
-    private val hideOverlay = Runnable { overlay.animate().alpha(0f).setDuration(300).start() }
-    private fun showOverlay(sticky: Boolean = false) {
-        overlay.animate().cancel(); overlay.alpha = 1f
-        h.removeCallbacks(hideOverlay)
-        if (!sticky) h.postDelayed(hideOverlay, 4500)
-    }
+    private val introHide = Runnable { if (mode == Mode.HIDDEN) overlay.animate().alpha(0f).setDuration(300).start() }
     private val hideBanner = Runnable { banner.visibility = View.GONE }
     private fun showBanner(t: String) {
         banner.text = t
@@ -273,7 +287,7 @@ class PlayerHost(private val act: MainActivity) : EngineCb {
     }
 
     private fun clock(ms: Long): String {
-        val t = (ms / 1000).toInt()
+        val t = (ms.coerceAtLeast(0) / 1000).toInt()
         return if (t >= 3600) "%d:%02d:%02d".format(t / 3600, t / 60 % 60, t % 60) else "%d:%02d".format(t / 60, t % 60)
     }
 
@@ -283,11 +297,7 @@ class PlayerHost(private val act: MainActivity) : EngineCb {
             val it = item; val e = engine
             if (it != null && e != null) {
                 val p = e.pos; val d = e.dur
-                if (it.live) { time.text = "● DIRECT"; bar.progress = 1000 }
-                else {
-                    time.text = if (d > 0) "${clock(p)} / ${clock(d)}" else clock(p)
-                    bar.progress = if (d > 0) (p * 1000 / d).toInt() else 0
-                }
+                refreshTime(p, d)
                 // le son avance mais aucune image après 7 s (vidéo que le lecteur Android ne décode pas) : VLC
                 if (!firstFrame && engineKind == "media3" && e.playing && playingSince > 0 &&
                     System.currentTimeMillis() - playingSince > 7000 && e.hasVideo) {
@@ -299,14 +309,195 @@ class PlayerHost(private val act: MainActivity) : EngineCb {
                     lastReport = now
                     act.emitPlayer(JSONObject().put("type", "progress").put("pos", p / 1000.0).put("dur", d / 1000.0).put("idx", idx))
                 }
-                if (it.next && d > 0 && d - p in 1..45000) {
+                if (it.next && d > 0 && d - p in 1..45000 && mode == Mode.HIDDEN) {
                     nextHint.text = "Épisode suivant : ${it.nextLabel.ifEmpty { "à la fin" }}  ⏭"
                     nextHint.visibility = View.VISIBLE
                 } else nextHint.visibility = View.GONE
             }
-            h.postDelayed(this, 1000)
+            h.postDelayed(this, 500)
         }
     }
+
+    private fun refreshTime(p: Long, d: Long) {
+        val it = item ?: return
+        if (it.live) { time.text = "● DIRECT"; remain.text = ""; seek.set(1f, null, false); return }
+        val shownPos = preview ?: p
+        time.text = clock(shownPos)
+        remain.text = if (d > 0) "-" + clock(d - shownPos) + "   ·   " + clock(d) else ""
+        val tgt = preview?.let { pv -> Pair(if (d > 0) pv.toFloat() / d else 0f, clock(pv)) }
+        seek.set(if (d > 0) p.toFloat() / d else 0f, tgt, focusRow == 0 && mode == Mode.CONTROLS)
+    }
+
+    /* ------------------------------------------------------------------ barre de commandes, avance rapide, panneaux */
+
+    private enum class Mode { HIDDEN, CONTROLS, PANEL }
+    private var mode = Mode.HIDDEN
+    private var focusRow = 1                    // 0 : barre de progression, 1 : boutons
+    private var btn = 0
+    private data class Btn(val id: String, val label: String, val act: () -> Unit)
+    private var btns = listOf<Btn>()
+    private val btnViews = mutableListOf<TextView>()
+    private var preview: Long? = null           // position visée pendant l'avance rapide
+    private var scrubTimes = 0
+    private var lastScrub = 0L
+    private var panelRows = listOf<Pair<String, () -> Unit>>()
+    private var panelSel = 0
+    private val panelViews = mutableListOf<TextView>()
+
+    private fun pill(focused: Boolean, v: TextView) {
+        v.background = GradientDrawable().apply { cornerRadius = dp(26f); setColor(if (focused) Color.WHITE else 0x33FFFFFF) }
+        v.setTextColor(if (focused) Color.BLACK else Color.WHITE)
+        v.setShadowLayer(if (focused) 0f else 6f, 0f, 2f, 0xAA000000.toInt())
+    }
+
+    private fun buildButtons() {
+        val it = item ?: return
+        val e = engine
+        val list = mutableListOf<Btn>()
+        if (!it.live) list += Btn("pause", if (e?.playing == false) "▶  Lecture" else "❚❚  Pause") { togglePause(); buildButtons() }
+        if (!it.live) list += Btn("back10", "↺ 10 s") { seekBy(-10000) }
+        if (!it.live) list += Btn("fwd30", "30 s ↻") { seekBy(30000) }
+        val a = e?.audio().orEmpty(); val t = e?.text().orEmpty()
+        list += Btn("audio", "Langue · " + (a.firstOrNull { x -> x.selected }?.label?.ifBlank { null } ?: if (a.isEmpty()) "—" else "auto")) { panelAudio() }
+        list += Btn("subs", "Sous-titres · " + (t.firstOrNull { x -> x.selected }?.label?.ifBlank { null } ?: "aucun")) { panelSubs() }
+        if (it.streams.size > 1) list += Btn("version", (if (it.live) "Source · " else "Version · ") + it.streams[idx].label.ifEmpty { "${idx + 1}" }) { panelVersions() }
+        if (it.next) list += Btn("next", "Épisode suivant ⏭") { e?.let { x -> act.emitPlayer(JSONObject().put("type", "next").put("pos", x.pos / 1000.0).put("dur", x.dur / 1000.0).put("idx", idx)) } }
+        list += Btn("player", "Lecteur · " + (e?.name ?: "…")) { panelPlayer() }
+        val keepId = btns.getOrNull(btn)?.id
+        btns = list
+        btn = btns.indexOfFirst { b -> b.id == keepId }.takeIf { x -> x >= 0 } ?: btn.coerceIn(0, btns.size - 1)
+        buttons.removeAllViews(); btnViews.clear()
+        btns.forEachIndexed { i, b ->
+            val v = text(17f, true).apply { this.text = b.label; setPadding(dp(22f).toInt(), dp(11f).toInt(), dp(22f).toInt(), dp(11f).toInt()) }
+            buttons.addView(v, LinearLayout.LayoutParams(-2, -2).apply { rightMargin = dp(12f).toInt() })
+            btnViews += v
+        }
+        paintButtons()
+    }
+
+    private fun paintButtons() {
+        btnViews.forEachIndexed { i, v -> pill(mode == Mode.CONTROLS && focusRow == 1 && i == btn, v) }
+        val e = engine ?: return
+        refreshTime(e.pos, e.dur)
+    }
+
+    private val autoHide = Runnable { if (mode == Mode.CONTROLS && preview == null && engine?.playing != false) hideControls() }
+    private fun kick() { h.removeCallbacks(autoHide); h.postDelayed(autoHide, 6000) }
+
+    private fun showControls(row: Int, focusId: String? = null) {
+        val it = item ?: return
+        mode = Mode.CONTROLS
+        focusRow = if (it.live) 1 else row
+        buildButtons()
+        if (focusId != null) btns.indexOfFirst { b -> b.id == focusId }.takeIf { x -> x >= 0 }?.let { x -> btn = x }
+        overlay.animate().cancel(); overlay.alpha = 1f; overlay.visibility = View.VISIBLE
+        nextHint.visibility = View.GONE
+        paintButtons()
+        kick()
+    }
+
+    private fun hideControls() {
+        mode = Mode.HIDDEN
+        preview = null
+        overlay.animate().alpha(0f).setDuration(250).withEndAction { if (mode == Mode.HIDDEN) overlay.visibility = View.INVISIBLE }.start()
+    }
+
+    /** Avance / retour rapide : chaque appui déplace le repère, de plus en plus vite si on insiste ;
+     *  la lecture saute à l'endroit choisi quand on relâche (ou tout de suite avec OK). */
+    private fun scrub(dir: Int, repeat: Int) {
+        val e = engine ?: return
+        val now = System.currentTimeMillis()
+        scrubTimes = if (now - lastScrub < 700) scrubTimes + 1 else 0
+        lastScrub = now
+        val n = maxOf(repeat, scrubTimes)
+        val step = when { n < 3 -> 10_000L; n < 8 -> 30_000L; n < 16 -> 60_000L; else -> 180_000L }
+        val d = e.dur
+        val base = preview ?: e.pos
+        preview = (base + dir * step).coerceIn(0, if (d > 0) d - 1000 else Long.MAX_VALUE)
+        if (mode != Mode.CONTROLS) showControls(0) else { focusRow = 0; paintButtons() }
+        h.removeCallbacks(commitScrub); h.postDelayed(commitScrub, 900)
+        kick()
+    }
+    private val commitScrub = Runnable { preview?.let { p -> engine?.seekTo(p) }; preview = null; paintButtons(); kick() }
+
+    private fun seekBy(ms: Long) { engine?.let { x -> x.seekTo((x.pos + ms).coerceAtLeast(0)) }; kick() }
+
+    private fun openPanel(titleText: String, rows: List<Pair<String, () -> Unit>>, selected: Int) {
+        if (rows.isEmpty()) return
+        mode = Mode.PANEL
+        h.removeCallbacks(autoHide)
+        panelTitle.text = titleText
+        panelRows = rows
+        panelSel = selected.coerceIn(0, rows.size - 1)
+        panelList.removeAllViews(); panelViews.clear()
+        rows.forEach { (label, _) ->
+            val v = text(19f, false).apply { this.text = label; setPadding(dp(22f).toInt(), dp(14f).toInt(), dp(22f).toInt(), dp(14f).toInt()) }
+            panelList.addView(v, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(6f).toInt() })
+            panelViews += v
+        }
+        panel.visibility = View.VISIBLE
+        paintPanel()
+        paintButtons()
+    }
+
+    private fun paintPanel() {
+        panelViews.forEachIndexed { i, v ->
+            v.background = GradientDrawable().apply { cornerRadius = dp(14f); setColor(if (i == panelSel) Color.WHITE else 0x00000000) }
+            v.setTextColor(if (i == panelSel) Color.BLACK else Color.WHITE)
+        }
+        panelViews.getOrNull(panelSel)?.let { v -> panelScroll.post { panelScroll.smoothScrollTo(0, (v.top - dp(80f).toInt()).coerceAtLeast(0)) } }
+    }
+
+    private fun closePanel() {
+        panel.visibility = View.GONE
+        showControls(1)
+    }
+
+    private fun check(on: Boolean, label: String) = (if (on) "✓   " else "      ") + label
+
+    private fun panelAudio() {
+        val e = engine ?: return
+        val a = e.audio()
+        if (a.isEmpty()) { showBanner("Une seule langue dans cette version"); return }
+        openPanel("Langue", a.map { tr -> check(tr.selected, tr.label.ifBlank { "Piste" }) to { e.selectAudio(tr); closeSoon() } }, a.indexOfFirst { x -> x.selected })
+    }
+
+    private fun panelSubs() {
+        val e = engine ?: return
+        val t = e.text()
+        val rows = mutableListOf<Pair<String, () -> Unit>>(check(t.none { x -> x.selected }, "Aucun") to { e.selectText(null); closeSoon() })
+        t.forEach { tr -> rows += check(tr.selected, tr.label.ifBlank { "Sous-titres" }) to { e.selectText(tr); closeSoon() } }
+        if (t.isEmpty()) rows += "      (pas de sous-titres dans cette version)" to { }
+        openPanel("Sous-titres", rows, t.indexOfFirst { x -> x.selected } + 1)
+    }
+
+    private fun panelVersions() {
+        val it = item ?: return
+        openPanel(if (it.live) "Source" else "Version", it.streams.mapIndexed { i, s ->
+            check(i == idx, s.label.ifEmpty { "Version ${i + 1}" }) to {
+                panel.visibility = View.GONE; hideControls()
+                tried.clear(); startStream(i, if (it.live) 0L else (engine?.pos ?: 0L), null)
+            }
+        }, idx)
+    }
+
+    private fun panelPlayer() {
+        val it = item ?: return
+        val e = engine ?: return
+        val def = prefs.getString("defaut", "auto") ?: "auto"
+        val rows = mutableListOf<Pair<String, () -> Unit>>()
+        rows += ("Lire avec " + (if (engineKind == "vlc") "le lecteur Android" else "VLC")) to {
+            prefs.edit().putString(memoryKey(it, it.streams[idx]), other()).apply()
+            panel.visibility = View.GONE; hideControls()
+            tried.clear(); startStream(idx, if (it.live) 0L else e.pos, other())
+        }
+        rows += "Ouvrir avec une autre application…" to { openWith() }
+        for ((v, l) in listOf("auto" to "automatique (recommandé)", "media3" to "toujours le lecteur Android", "vlc" to "toujours VLC"))
+            rows += check(def == v, "Par défaut : $l") to { prefs.edit().putString("defaut", v).apply(); showBanner("Lecteur par défaut : $l"); closeSoon() }
+        openPanel("Lecteur · ${e.name}", rows, 0)
+    }
+
+    private fun closeSoon() { h.postDelayed({ if (mode == Mode.PANEL) closePanel() else buildButtons() }, 250) }
 
     /* ------------------------------------------------------------------ télécommande */
 
@@ -322,88 +513,73 @@ class PlayerHost(private val act: MainActivity) : EngineCb {
             KeyEvent.KEYCODE_MENU, KeyEvent.KEYCODE_INFO, KeyEvent.KEYCODE_CAPTIONS)
         if (code !in handled) return false
         if (ev.action != KeyEvent.ACTION_DOWN) return true
-        showOverlay()
-        val zap = { d: Int -> act.emitPlayer(JSONObject().put("type", "zap").put("d", d)) }
-        val seek = { s: Long -> e?.let { x -> x.seekTo(x.pos + s * (if (ev.repeatCount > 3) 3 else 1)) } }
+        val rep = ev.repeatCount
+        val ok = code == KeyEvent.KEYCODE_DPAD_CENTER || code == KeyEvent.KEYCODE_ENTER || code == KeyEvent.KEYCODE_NUMPAD_ENTER
+        val zap = { d: Int -> if (rep == 0) act.emitPlayer(JSONObject().put("type", "zap").put("d", d)) }
+
+        // touches valables partout
         when (code) {
-            KeyEvent.KEYCODE_BACK, KeyEvent.KEYCODE_MEDIA_STOP -> if (ev.repeatCount == 0) stop(true)
-            KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_NUMPAD_ENTER -> {
-                if (ev.repeatCount == 2) options()                         // appui long : options
-                else if (ev.repeatCount == 0) {
-                    if (msg.visibility == View.VISIBLE) { tried.clear(); retries = 0; startStream(idx, ((e?.pos ?: startAt) - 2000).coerceAtLeast(0), null) }
-                    else if (!it.live) togglePause()
+            KeyEvent.KEYCODE_MEDIA_STOP -> { stop(true); return true }
+            KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE, KeyEvent.KEYCODE_SPACE -> { if (rep == 0 && !it.live) { togglePause(); if (mode == Mode.CONTROLS) buildButtons() }; return true }
+            KeyEvent.KEYCODE_MEDIA_PLAY -> { e?.play(); return true }
+            KeyEvent.KEYCODE_MEDIA_PAUSE -> { e?.pause(); return true }
+            KeyEvent.KEYCODE_MEDIA_REWIND -> { if (!it.live) scrub(-1, rep); return true }
+            KeyEvent.KEYCODE_MEDIA_FAST_FORWARD -> { if (!it.live) scrub(1, rep); return true }
+            KeyEvent.KEYCODE_CHANNEL_UP, KeyEvent.KEYCODE_PAGE_UP -> { if (it.live) zap(-1); return true }
+            KeyEvent.KEYCODE_CHANNEL_DOWN, KeyEvent.KEYCODE_PAGE_DOWN -> { if (it.live) zap(1); return true }
+            KeyEvent.KEYCODE_MEDIA_NEXT -> { if (it.next && e != null) act.emitPlayer(JSONObject().put("type", "next").put("pos", e.pos / 1000.0).put("dur", e.dur / 1000.0).put("idx", idx)); return true }
+            KeyEvent.KEYCODE_CAPTIONS -> { if (rep == 0) { showControls(1, "subs"); panelSubs() }; return true }
+        }
+        // écran d'erreur : OK réessaie
+        if (msg.visibility == View.VISIBLE && ok && rep == 0) {
+            tried.clear(); retries = 0; msg.visibility = View.GONE
+            startStream(idx, ((e?.pos ?: startAt) - 2000).coerceAtLeast(0), null); return true
+        }
+
+        when (mode) {
+            Mode.PANEL -> when (code) {
+                KeyEvent.KEYCODE_DPAD_UP -> { if (panelSel > 0) { panelSel--; paintPanel() } }
+                KeyEvent.KEYCODE_DPAD_DOWN -> { if (panelSel < panelRows.size - 1) { panelSel++; paintPanel() } }
+                KeyEvent.KEYCODE_BACK, KeyEvent.KEYCODE_DPAD_LEFT -> if (rep == 0) closePanel()
+                else -> if ((ok || code == KeyEvent.KEYCODE_DPAD_RIGHT) && rep == 0) panelRows.getOrNull(panelSel)?.second?.invoke()
+            }
+            Mode.CONTROLS -> {
+                kick()
+                when (code) {
+                    KeyEvent.KEYCODE_BACK -> if (rep == 0) { if (preview != null) { preview = null; h.removeCallbacks(commitScrub); paintButtons() } else hideControls() }
+                    KeyEvent.KEYCODE_MENU, KeyEvent.KEYCODE_INFO -> if (rep == 0) hideControls()
+                    KeyEvent.KEYCODE_DPAD_UP -> if (it.live) zap(-1) else if (focusRow == 1) { focusRow = 0; paintButtons() } else if (rep == 0) hideControls()
+                    KeyEvent.KEYCODE_DPAD_DOWN -> if (it.live) zap(1) else if (focusRow == 0) { commitNow(); focusRow = 1; paintButtons() }
+                    KeyEvent.KEYCODE_DPAD_LEFT -> if (focusRow == 0) scrub(-1, rep) else if (btn > 0) { btn--; paintButtons() }
+                    KeyEvent.KEYCODE_DPAD_RIGHT -> if (focusRow == 0) scrub(1, rep) else if (btn < btns.size - 1) { btn++; paintButtons() }
+                    else -> if (ok && rep == 0) {
+                        if (focusRow == 0) { if (preview != null) commitNow() else { togglePause(); buildButtons() } }
+                        else btns.getOrNull(btn)?.act?.invoke()
+                    }
                 }
             }
-            KeyEvent.KEYCODE_MENU, KeyEvent.KEYCODE_INFO, KeyEvent.KEYCODE_CAPTIONS -> if (ev.repeatCount == 0) options()
-            KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE, KeyEvent.KEYCODE_SPACE -> if (ev.repeatCount == 0) togglePause()
-            KeyEvent.KEYCODE_MEDIA_PLAY -> e?.play()
-            KeyEvent.KEYCODE_MEDIA_PAUSE -> e?.pause()
-            KeyEvent.KEYCODE_DPAD_LEFT -> if (it.live) { if (ev.repeatCount == 0) zap(-1) } else seek(-10000)
-            KeyEvent.KEYCODE_DPAD_RIGHT -> if (it.live) { if (ev.repeatCount == 0) zap(1) } else seek(30000)
-            KeyEvent.KEYCODE_MEDIA_REWIND -> seek(-10000)
-            KeyEvent.KEYCODE_MEDIA_FAST_FORWARD -> seek(30000)
-            KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_CHANNEL_UP, KeyEvent.KEYCODE_PAGE_UP ->
-                if (it.live) { if (ev.repeatCount == 0) zap(-1) }
-            KeyEvent.KEYCODE_DPAD_DOWN, KeyEvent.KEYCODE_CHANNEL_DOWN, KeyEvent.KEYCODE_PAGE_DOWN ->
-                if (it.live) { if (ev.repeatCount == 0) zap(1) } else if (code == KeyEvent.KEYCODE_DPAD_DOWN && ev.repeatCount == 0) options()
-            KeyEvent.KEYCODE_MEDIA_NEXT -> if (it.next && e != null)
-                act.emitPlayer(JSONObject().put("type", "next").put("pos", e.pos / 1000.0).put("dur", e.dur / 1000.0).put("idx", idx))
+            Mode.HIDDEN -> when (code) {
+                KeyEvent.KEYCODE_BACK -> if (rep == 0) stop(true)
+                KeyEvent.KEYCODE_MENU, KeyEvent.KEYCODE_INFO -> if (rep == 0) showControls(1, "audio")
+                KeyEvent.KEYCODE_DPAD_LEFT -> if (it.live) zap(-1) else scrub(-1, rep)
+                KeyEvent.KEYCODE_DPAD_RIGHT -> if (it.live) zap(1) else scrub(1, rep)
+                KeyEvent.KEYCODE_DPAD_UP -> if (it.live) zap(-1) else if (rep == 0) showControls(0)
+                KeyEvent.KEYCODE_DPAD_DOWN -> if (it.live) zap(1) else if (rep == 0) showControls(1, "audio")
+                else -> if (ok && rep == 0) {
+                    if (it.live) showControls(1, "audio")
+                    else { togglePause(); showControls(1, "pause") }
+                }
+            }
         }
         return true
     }
 
+    private fun commitNow() { h.removeCallbacks(commitScrub); if (preview != null) commitScrub.run() }
+
     private fun togglePause() {
         val e = engine ?: return
-        if (e.playing) { e.pause(); showOverlay(sticky = true); time.text = "⏸  " + time.text } else e.play()
-    }
-
-    /* ------------------------------------------------------------------ options : langue, sous-titres, version, lecteur */
-
-    private fun dialog() = AlertDialog.Builder(act, android.R.style.Theme_DeviceDefault_Dialog_Alert)
-
-    private fun options() {
-        val it = item ?: return
-        val e = engine ?: return
-        val a = e.audio(); val t = e.text()
-        val labels = mutableListOf<String>(); val actions = mutableListOf<() -> Unit>()
-        if (a.size > 1) { labels += "Langue : ${a.firstOrNull { x -> x.selected }?.label ?: "—"}"; actions += { pick("Langue", a, false) } }
-        if (t.isNotEmpty()) { labels += "Sous-titres : ${t.firstOrNull { x -> x.selected }?.label ?: "aucun"}"; actions += { pick("Sous-titres", t, true) } }
-        if (it.streams.size > 1) { labels += "Version : ${it.streams[idx].label}"; actions += { versions() } }
-        labels += "Lire avec " + (if (engineKind == "vlc") "le lecteur Android" else "VLC")
-        actions += {
-            prefs.edit().putString(memoryKey(it, it.streams[idx]), other()).apply()
-            val at = if (it.live) 0L else e.pos
-            tried.clear()
-            startStream(idx, at, other())
-        }
-        labels += "Ouvrir avec une autre application…"; actions += { openWith() }
-        val def = prefs.getString("defaut", "auto")
-        labels += "Lecteur par défaut : " + when (def) { "vlc" -> "VLC"; "media3" -> "Android"; else -> "automatique" }
-        actions += { defaultPlayer() }
-        dialog().setTitle(it.title).setItems(labels.toTypedArray()) { _, w -> actions[w]() }.show()
-    }
-
-    private fun pick(name: String, list: List<Tr>, allowNone: Boolean) {
-        val e = engine ?: return
-        val labels = (if (allowNone) listOf("Aucun") else emptyList()) + list.map { (if (it.selected) "✓  " else "") + it.label }
-        dialog().setTitle(name).setItems(labels.toTypedArray()) { _, w ->
-            if (allowNone && w == 0) e.selectText(null)
-            else { val tr = list[if (allowNone) w - 1 else w]; if (allowNone) e.selectText(tr) else e.selectAudio(tr) }
-        }.show()
-    }
-
-    private fun versions() {
-        val it = item ?: return
-        dialog().setTitle("Version").setItems(it.streams.mapIndexed { i, s -> (if (i == idx) "✓  " else "") + s.label.ifEmpty { "Version ${i + 1}" } }.toTypedArray()) { _, w ->
-            tried.clear()
-            startStream(w, if (it.live) 0L else (engine?.pos ?: 0L), null)
-        }.show()
-    }
-
-    private fun defaultPlayer() {
-        val opts = arrayOf("automatique (recommandé)", "toujours le lecteur Android", "toujours VLC")
-        val vals = arrayOf("auto", "media3", "vlc")
-        dialog().setTitle("Lecteur par défaut").setItems(opts) { _, w -> prefs.edit().putString("defaut", vals[w]).apply() }.show()
+        if (e.playing) e.pause() else e.play()
+        h.postDelayed({ if (mode == Mode.CONTROLS) buildButtons() }, 150)
     }
 
     private fun openWith() {
@@ -417,5 +593,40 @@ class PlayerHost(private val act: MainActivity) : EngineCb {
         stop(true)
         try { act.startActivity(Intent.createChooser(i, "Ouvrir avec…")) }
         catch (_: Exception) { act.js("toast('Aucune autre application vidéo installée','warn')") }
+    }
+}
+
+/** Barre de progression de la lecture : position, repère d'avance rapide et heure visée. */
+class SeekView(ctx: Ctx) : View(ctx) {
+    private var played = 0f
+    private var target: Pair<Float, String>? = null
+    private var focused = false
+    private val d = ctx.resources.displayMetrics.density
+    private val track = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0x55FFFFFF }
+    private val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFFD6375F.toInt() }
+    private val knob = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE }
+    private val ghost = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xAAFFFFFF.toInt() }
+    private val label = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE; textSize = 17 * d; typeface = Typeface.DEFAULT_BOLD; textAlign = Paint.Align.CENTER }
+    private val tag = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xE6000000.toInt() }
+
+    fun set(p: Float, t: Pair<Float, String>?, f: Boolean) {
+        if (p == played && t == target && f == focused) return
+        played = p.coerceIn(0f, 1f); target = t; focused = f; invalidate()
+    }
+
+    override fun onDraw(c: Canvas) {
+        val w = width.toFloat(); val y = height - 10 * d
+        val th = if (focused) 8 * d else 5 * d
+        c.drawRoundRect(RectF(0f, y - th / 2, w, y + th / 2), th, th, track)
+        c.drawRoundRect(RectF(0f, y - th / 2, w * played, y + th / 2), th, th, fill)
+        val t = target
+        if (t != null) {
+            val x = (w * t.first).coerceIn(0f, w)
+            c.drawRect(x - 2 * d, y - 14 * d, x + 2 * d, y + 6 * d, ghost)
+            val tw = label.measureText(t.second) / 2 + 12 * d
+            val cx = x.coerceIn(tw, w - tw)
+            c.drawRoundRect(RectF(cx - tw, 0f, cx + tw, 26 * d), 8 * d, 8 * d, tag)
+            c.drawText(t.second, cx, 19 * d, label)
+        } else if (focused) c.drawCircle(w * played, y, 11 * d, knob)
     }
 }

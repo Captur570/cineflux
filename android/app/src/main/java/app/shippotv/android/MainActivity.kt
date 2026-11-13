@@ -39,7 +39,8 @@ class MainActivity : Activity() {
         Kv.init(this)
         Caps.init(this)
         Log.i("ShippoTV", "[box] ${Caps.summary()}")
-        testConfig = intent?.getStringExtra("test")
+        // mode essai : seulement si l'émulateur de test a déposé ce fichier (une autre appli ne peut pas l'y créer)
+        testConfig = intent?.getStringExtra("test")?.takeIf { java.io.File("/data/local/tmp/shippotv-essais").exists() }
 
         root = FrameLayout(this).apply { setBackgroundColor(Color.rgb(11, 6, 9)) }
         webView = WebView(this)

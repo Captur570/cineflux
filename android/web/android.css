@@ -1,0 +1,25 @@
+/* ShippoTV Android — version allégée pour les petits boîtiers (Fire TV Stick, Player Pop…) :
+   les effets coûteux pour le processeur graphique sont remplacés par des équivalents fixes. */
+
+/* fond d'ambiance : deux grands disques floutés (très coûteux) → dégradés fixes */
+body.platform-android #ambient i { display: none !important; }
+body.platform-android #ambient {
+  background:
+    radial-gradient(ellipse 90vw 110vh at 15% -10%, rgba(110, 20, 48, .55), transparent 70%),
+    radial-gradient(ellipse 80vw 90vh at 95% 100%, rgba(58, 10, 28, .5), transparent 70%),
+    var(--bg) !important;
+}
+
+/* ombres floutées : supprimées, le repère de focus reste net */
+body.platform-android * { box-shadow: none !important; text-shadow: none !important; }
+body.platform-android :focus-visible { box-shadow: 0 0 0 4px #fff !important; }
+body.platform-android .prof:focus-visible { box-shadow: none !important; }
+body.platform-android .prof:focus-visible .avatar { box-shadow: 0 0 0 4px #fff !important; }
+body.platform-android input:focus, body.platform-android .code-input:focus { box-shadow: 0 0 0 3px rgba(255, 179, 71, .45) !important; }
+
+/* agrandissement au focus plus léger, sans animation d'entrée des grandes images */
+body.platform-android.tv .card:focus-visible { transform: scale(1.05); }
+body.platform-android .hero-bg, body.platform-android .dhero-bg { animation: none !important; transform: none !important; }
+body.platform-android .feat .hero-bg { transition: none !important; }
+body.platform-android * { transition-duration: .1s !important; }
+body.platform-android .modal-backdrop { animation: none !important; }

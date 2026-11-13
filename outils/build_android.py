@@ -31,7 +31,7 @@ def main():
         shutil.copy(os.path.join(ROOT, "tv", "engine", f), os.path.join(OUT, "engine", f))
     for f in ("platform.js", "tv.css"):
         shutil.copy(os.path.join(ROOT, "tv", f), os.path.join(OUT, f))
-    for f in ("bridge.js", "platform-android.js"):
+    for f in ("bridge.js", "platform-android.js", "android.css"):
         shutil.copy(os.path.join(ROOT, "android", "web", f), os.path.join(OUT, f))
     d = build_ios.defaults()
     d["update_repo"] = ""          # mises à jour gérées par l'appli Android elle-même (release android-beta)
@@ -43,7 +43,7 @@ def main():
     html = html.replace('<meta name="viewport" content="width=device-width, initial-scale=1">',
                         '<meta name="viewport" content="width=1280, user-scalable=no">')
     html = html.replace('<link rel="stylesheet" href="style.css">',
-                        '<link rel="stylesheet" href="style.css">\n<link rel="stylesheet" href="tv.css">')
+                        '<link rel="stylesheet" href="style.css">\n<link rel="stylesheet" href="tv.css">\n<link rel="stylesheet" href="android.css">')
     html = re.sub(r'<script src="vendor/[^"]+"></script>\n?', "", html)
     if '<script src="js/core.js"></script>' not in html or '<script src="js/boot.js"></script>' not in html:
         sys.exit("web/index.html inattendu")
