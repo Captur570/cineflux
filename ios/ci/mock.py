@@ -107,6 +107,8 @@ class H(BaseHTTPRequestHandler):
         if u.path.startswith("/badge/"):
             return self.file(os.path.join(HERE, "media", "badge.png"), "image/png")
         M = os.path.join(HERE, "media") + "/"
+        if u.path.startswith("/probe/") and re.fullmatch(r"/probe/[\w.-]+\.mkv", u.path):
+            return self.file(M + "probe/" + u.path[7:], "video/x-matroska")
         if u.path == "/scope.mkv":
             return self.file(M + "scope.mkv", "video/x-matroska")
         if u.path.startswith("/live/"):

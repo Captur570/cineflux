@@ -23,3 +23,10 @@ tvos/Payload/
 tvos/*.ipa
 tvos/ci/out/
 tvos/build-*.log
+android/app/src/main/assets/web/
+android/*.jks
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/ci/out/
