@@ -33,12 +33,9 @@ jobs:
       - name: Clé de signature (toujours la même, pour que les mises à jour s'installent par-dessus)
         env:
           GH_TOKEN: ${{ github.token }}
-          K1: ${{ secrets.TMDB_KEY }}
           K2: ${{ secrets.SUPABASE_KEY }}
-          K3: ${{ secrets.SUPABASE_URL }}
         run: |
-          echo "longueurs : ${#K1} ${#K2} ${#K3}"
-          K="${K1:-${K2:-$K3}}"
+          K="$K2"
           test -n "$K" || { echo "aucun secret disponible"; exit 1; }
           export P=$(printf 'shippotv-android-ks:%s' "$K" | sha256sum | cut -c1-32)
           echo "::add-mask::$P"
@@ -77,6 +74,7 @@ jobs:
           api-level: 30
           target: android-tv
           arch: x86
+          profile: tv_1080p
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
           script: bash android/ci/run_tests.sh

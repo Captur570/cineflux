@@ -369,7 +369,7 @@ class PlayerHost(private val act: MainActivity) : EngineCb {
         if (a.size > 1) { labels += "Langue : ${a.firstOrNull { x -> x.selected }?.label ?: "—"}"; actions += { pick("Langue", a, false) } }
         if (t.isNotEmpty()) { labels += "Sous-titres : ${t.firstOrNull { x -> x.selected }?.label ?: "aucun"}"; actions += { pick("Sous-titres", t, true) } }
         if (it.streams.size > 1) { labels += "Version : ${it.streams[idx].label}"; actions += { versions() } }
-        labels += "Lire avec le ${otherName()}"
+        labels += "Lire avec " + (if (engineKind == "vlc") "le lecteur Android" else "VLC")
         actions += {
             prefs.edit().putString(memoryKey(it, it.streams[idx]), other()).apply()
             val at = if (it.live) 0L else e.pos
