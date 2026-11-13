@@ -1,0 +1,42 @@
+ShippoTV sur Freebox Player Pop (et autres boîtiers Android TV)
+================================================================
+
+À faire une seule fois (5 minutes, avec la télécommande)
+
+1. Installer l'appli « Downloader »
+   Sur l'accueil de la box : Google Play > rechercher « Downloader » (icône orange, éditeur AFTVnews) > Installer.
+
+2. Autoriser Downloader à installer des applis
+   Paramètres (roue dentée) > Préférences relatives à l'appareil > Sécurité et restrictions
+   > Sources inconnues > activer « Downloader ».
+
+3. Télécharger ShippoTV
+   Ouvrir Downloader, et dans le champ d'adresse taper exactement :
+
+   github.com/Captur570/cineflux/releases/download/android-beta/ShippoTV-Android.apk
+
+   puis « Go ». Une fois le téléchargement fini : « Installer », puis « Ouvrir ».
+   (Downloader propose ensuite de supprimer le fichier : « Delete », il ne sert plus.)
+
+4. Premier lancement
+   Comme sur l'iPad et l'Apple TV, ShippoTV affiche un code : le saisir dans ShippoTV sur le PC
+   pour récupérer le compte, les réglages et la liste.
+
+Ensuite
+
+- ShippoTV apparaît sur l'accueil de la box (bannière ShippoTV). On peut la déplacer en tête.
+- Mises à jour : au démarrage, ShippoTV propose les nouvelles versions et les installe toute seule.
+  La première fois, Android demande d'autoriser « ShippoTV » à installer des applis : accepter.
+
+Télécommande Free
+
+- OK : pause / lecture. Appui long sur OK, ou flèche bas (films) : menu du lecteur.
+- Gauche / droite : -10 s / +30 s (films). En direct : chaîne précédente / suivante, comme CH+ / CH-.
+- Retour : quitter la vidéo.
+
+Le lecteur
+
+Avant chaque film, ShippoTV choisit le lecteur le mieux adapté à la box (lecteur Android ou VLC)
+et l'indique en haut à gauche, avec la raison. En cas d'échec, il passe tout seul sur l'autre lecteur
+et retient ce choix pour ce titre. Le menu du lecteur permet de changer de langue, de sous-titres,
+de version, de lecteur, d'ouvrir le film dans une autre appli, ou de fixer un lecteur par défaut.

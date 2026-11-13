@@ -30,11 +30,11 @@ run player 34 ""
 adb shell input keyevent KEYCODE_DPAD_DOWN; sleep 3; shot player_options
 adb shell input keyevent KEYCODE_BACK; sleep 1
 run live_play 40 ""
-run probe 26 ',"probe":"probe/dts_fr.mkv","label":"1080p · VF"'
+run probe 13 ',"probe":"probe/dts_fr.mkv","label":"1080p · VF"'
 mv $OUT/probe.png $OUT/probe_dts.png
-run probe 26 ',"probe":"probe/hevc10_eac3.mkv","label":"4K HDR · VF"'
+run probe 13 ',"probe":"probe/hevc10_eac3.mkv","label":"4K HDR · VF"'
 mv $OUT/probe.png $OUT/probe_hevc10.png
-run probe 26 ',"probe":"probe/aac_en_srtfr.mkv","label":"1080p · VOSTFR"'
+run probe 13 ',"probe":"probe/aac_en_srtfr.mkv","label":"1080p · VOSTFR"'
 mv $OUT/probe.png $OUT/probe_vostfr.png
 adb logcat -d -s ShippoTV:V chromium:W > $OUT/journal.txt
 adb logcat -d > $OUT/journal-complet.txt
