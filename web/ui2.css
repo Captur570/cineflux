@@ -104,3 +104,5 @@ body.browsing #view .row:not(:focus-within) .card { opacity: .5; }
 body.ui2.tv .rail { scroll-behavior: auto; padding-left: calc(var(--pad) + 6px); }
 /* assez de place pour la carte agrandie et son cadre, à gauche comme en haut */
 body.ui2.tv .rail { padding-top: 22px; padding-bottom: 26px; }
+/* pastilles de catégories : la pastille sélectionnée (agrandie) n'est jamais coupée */
+body.ui2 .chips { padding-top: 10px; padding-left: calc(var(--pad) + 10px); scroll-padding-left: 80px; }

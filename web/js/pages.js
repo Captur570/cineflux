@@ -314,7 +314,7 @@ function chipsFor(kind, extra) {
     b.onclick = () => { S.filter[kind] = id; render(); };
     chips.append(b);
   }
-  requestAnimationFrame(() => { const on = chips.querySelector('.on'); if (on) chips.scrollLeft = on.offsetLeft - 60; });
+  requestAnimationFrame(() => { const on = chips.querySelector('.on'); if (on) chips.scrollLeft = Math.max(0, on.offsetLeft - 120); });
   return chips;
 }
 
