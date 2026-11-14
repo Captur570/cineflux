@@ -40,7 +40,7 @@ object Updater {
         AlertDialog.Builder(act, android.R.style.Theme_DeviceDefault_Dialog_Alert)
             .setTitle("Nouvelle version de ShippoTV")
             .setMessage("Version $name disponible (vous avez ${BuildConfig.VERSION_NAME}).${if (notes.isNotBlank()) "\n\n$notes" else ""}\n\nVos réglages sont conservés.")
-            .setPositiveButton("Installer") { _, _ -> download(act, RELEASE + apk) }
+            .setPositiveButton("Installer") { _, _ -> download(act, if (apk.startsWith("http")) apk else RELEASE + apk) }
             .setNegativeButton("Plus tard", null)
             .show()
     }

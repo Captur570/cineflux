@@ -85,7 +85,7 @@ jobs:
           A=$(ls android/app/build/outputs/apk/release/*.apk 2>/dev/null | head -1)
           [ -n "$A" ] && cp "$A" pub/ShippoTV-Android.apk
           V="$(cat version.txt) (${{ github.run_number }})"
-          printf '{"code": %d, "name": "%s", "apk": "https://github.com/%s/releases/download/android-beta/ShippoTV-Android.apk", "notes": "%s"}\n' \
+          printf '{"code": %d, "name": "%s", "apk": "ShippoTV-Android.apk", "repo": "%s", "notes": "%s"}\n' \
             $((1000 + ${{ github.run_number }})) "$V" "${{ github.repository }}" "$(git log -1 --pretty=%s | tr -d '"\\' | cut -c1-120)" > pub/android-version.json
           cat pub/android-version.json
           mkdir -p essai && cp android/ci/out/* essai/ 2>/dev/null || true
