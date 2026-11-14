@@ -1,3 +1,11 @@
+ShippoTV 5.4.0
+- Nouvelle interface : menu latéral avec icônes, rangées « À la une » sur Films, Séries et TV en direct
+- À la télécommande : la rangée sélectionnée reste toujours à la même hauteur et le haut de l'écran présente le titre sélectionné (image, infos, résumé), comme sur l'Apple TV et Netflix
+- Fiche d'un film : bouton « Versions » qui ouvre un panneau avec toutes les versions ; la qualité lue d'office est indiquée dans le bouton Lecture ; plus rien n'est coupé en bas de l'écran
+- Chaînes : ShippoTV demande quelle source utiliser, avec la plus fiable déjà sélectionnée. La 4K « événements » n'est plus choisie d'office (sauf pendant un match) et « Toujours utiliser ce choix » évite la question
+- Android : profil du boîtier (modeste, standard, puissant) détecté tout seul ; VLC par défaut sur les petits boîtiers et pour le direct ; VLC prend le relais si le lecteur Android échoue souvent ; réglage « Boîtier et lecteur » avec le journal des derniers choix du lecteur
+- Synchronisation : le serveur Supabase est réveillé automatiquement tous les 3 jours
+
 ShippoTV 5.3.2
 - Synchronisation : la clé TMDB est partagée entre vos appareils associés (chiffrée comme le reste). Un appareil sans clé (Apple TV, nouvelle télé) reçoit tout seul affiches et résumés
 - Apple TV : première version (films, accueil, fiche, lecteur VLC, QR code, synchronisation)

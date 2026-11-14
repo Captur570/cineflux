@@ -1194,6 +1194,7 @@
       countries: Object.entries(TV.COUNTRIES).map(([code, v]) => Object.assign({ code }, v)),
       dl_dir: '', dl_pause_play: false, show_unavailable: c.show_unavailable !== false, tv_mode: true,
       online: A.online, catalog_ts: Math.trunc(A.catalog_ts || 0), refreshing: A.refreshing,
+      src_pick: c.src_pick || {},
     };
   }
 
@@ -1338,6 +1339,11 @@
       c.password = body.password ? c.password : (pw || c.password);
     }
     for (const k of ['show_unavailable']) if (k in body) c[k] = !!body[k];
+    if (body.src_pick && typeof body.src_pick === 'object') {     // source retenue par chaîne
+      const out = {};
+      for (const [k, v] of Object.entries(body.src_pick).slice(0, 2000)) if (v && Number.isInteger(v.i)) out[String(k)] = { i: v.i, always: !!v.always };
+      c.src_pick = out;
+    }
     if ('tmdb_key' in body) A.disc_cache = {};
     if ('country' in body) { A.now_cache = null; A.tv_cache = {}; }
     CONFIG.save();

@@ -2592,7 +2592,8 @@ def public_config(prof=None):
             "countries": [{"code": k, **v} for k, v in tvguide.COUNTRIES.items()],
             "dl_dir": dl_folder(), "dl_pause_play": c.get("dl_pause_play", True),
             "show_unavailable": c.get("show_unavailable", True), "tv_mode": c.get("tv_mode", False),
-            "online": APP.online, "catalog_ts": int(APP.catalog_ts or 0), "refreshing": APP.refreshing}
+            "online": APP.online, "catalog_ts": int(APP.catalog_ts or 0), "refreshing": APP.refreshing,
+            "src_pick": c.get("src_pick") or {}}
 
 
 WINDOW = None
@@ -2798,6 +2799,10 @@ def r_config(method, body, g, prof):
     for k in ("fullscreen", "dl_pause_play", "show_unavailable", "tv_mode"):
         if k in body:
             c[k] = bool(body[k])
+    if isinstance(body.get("src_pick"), dict):      # source retenue par chaîne
+        c["src_pick"] = {str(k): {"i": int(v["i"]), "always": bool(v.get("always"))}
+                         for k, v in list(body["src_pick"].items())[:2000]
+                         if isinstance(v, dict) and isinstance(v.get("i"), int)}
     if "tmdb_key" in body:
         APP.disc_cache = {}
     if "country" in body:

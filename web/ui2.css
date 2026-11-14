@@ -1,0 +1,106 @@
+/* ShippoTV — interface 5.4 : menu latéral, haut d'écran qui suit la sélection, panneaux latéraux.
+   Chargé après style.css (et avant les ajustements propres à la télé). */
+
+:root { --rail: 92px; --rail-open: 290px; }
+
+/* ---------------------------------------------------------------- menu latéral */
+body.ui2 #nav.rail-nav {
+  inset: 0 auto 0 0; width: var(--rail); height: auto; padding: 24px 14px 22px; box-sizing: border-box;
+  flex-direction: column; align-items: stretch; gap: 0; overflow: hidden;
+  background: linear-gradient(90deg, rgba(6, 4, 8, .94) 0%, rgba(6, 4, 8, .7) 60%, rgba(6, 4, 8, 0) 100%);
+  box-shadow: none; transition: width .2s cubic-bezier(.2, .8, .2, 1), background .2s;
+}
+body.ui2 #nav.rail-nav.solid { background: linear-gradient(90deg, rgba(6, 4, 8, .96) 0%, rgba(6, 4, 8, .75) 60%, rgba(6, 4, 8, 0) 100%); box-shadow: none; backdrop-filter: none; }
+body.ui2 #nav.rail-nav:hover, body.ui2 #nav.rail-nav:focus-within { width: var(--rail-open); background: rgba(8, 5, 9, .97); box-shadow: 30px 0 80px rgba(0, 0, 0, .55); }
+body.ui2 #nav .brand { height: 48px; padding-left: 10px; margin-bottom: 26px; font-size: 22px; white-space: nowrap; }
+body.ui2 #nav .brand .bw { opacity: 0; transition: opacity .15s; }
+body.ui2 #nav:hover .brand .bw, body.ui2 #nav:focus-within .brand .bw { opacity: 1; }
+
+body.ui2 #nav .links { flex-direction: column; gap: 6px; margin: 0; padding: 0; background: none; border: 0; box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; border-radius: 0; }
+body.ui2 #nav .links a { display: flex; align-items: center; gap: 18px; height: 52px; padding: 0 16px; border-radius: 14px; white-space: nowrap;
+  font-size: 16px; font-weight: 600; color: rgba(255, 255, 255, .62); background: none; position: relative; }
+body.ui2 #nav .links a .ic { width: 26px; height: 26px; flex: none; fill: none; stroke: currentColor; stroke-width: 2.1; stroke-linecap: round; stroke-linejoin: round; }
+body.ui2 #nav .links a .ic .f { fill: currentColor; stroke: none; }
+body.ui2 #nav .links a .lb { opacity: 0; transition: opacity .15s; }
+body.ui2 #nav:hover .links a .lb, body.ui2 #nav:focus-within .links a .lb { opacity: 1; }
+body.ui2 #nav .links a.on { color: #fff; background: none; }
+body.ui2 #nav .links a.on::after { display: block; content: ""; position: absolute; left: 3px; top: 50%; width: 5px; height: 5px; margin-top: -2.5px; border-radius: 50%; background: #ff8fa8; }
+body.ui2 #nav .links a:hover { color: #fff; background: rgba(255, 255, 255, .1); }
+body.ui2 #nav .links a:focus-visible, body.ui2.tv #nav .links a:focus { color: #16070d; background: #fff; outline: none; }
+
+/* recherche : une icône dans le menu, un champ quand le menu est ouvert */
+body.ui2 #nav .rail-search { width: auto; height: 52px; margin: 0 0 6px; padding: 0 16px; border-radius: 14px; gap: 18px; background: none; border: 0; box-shadow: none; backdrop-filter: none; }
+body.ui2 #nav .rail-search svg { width: 26px; height: 26px; stroke: rgba(255, 255, 255, .62); flex: none; }
+body.ui2 #nav .rail-search input { opacity: 0; width: 100%; font-size: 16px; }
+body.ui2 #nav:hover .rail-search, body.ui2 #nav:focus-within .rail-search { background: rgba(255, 255, 255, .1); }
+body.ui2 #nav:hover .rail-search input, body.ui2 #nav:focus-within .rail-search input { opacity: 1; }
+body.ui2 #nav .rail-search:focus-within { background: rgba(255, 255, 255, .16); box-shadow: 0 0 0 2px rgba(255, 255, 255, .8); }
+
+/* profil en bas du menu */
+body.ui2 #nav .tools { margin: auto 0 0; padding-left: 4px; }
+body.ui2 #nav .tools .search { display: none; }
+
+/* le contenu commence après le menu */
+body.ui2 #view { padding-left: var(--rail); }
+body.ui2 .page.top { padding-top: 44px; }
+body.ui2 .back-btn { top: 36px !important; }
+body.ui2 #offline, body.ui2 #updating { left: calc(var(--rail) + 20px); }
+body.ui2[data-page="profiles"] #view { padding-left: 0; }
+
+/* ---------------------------------------------------------------- boutons : étiquette de qualité */
+.btn-chip { margin-left: 12px; padding: 3px 10px; border-radius: 8px; font-size: .78em; font-weight: 800; letter-spacing: .02em;
+  background: rgba(255, 255, 255, .18); white-space: nowrap; }
+.btn:focus .btn-chip, .btn:focus-visible .btn-chip { background: rgba(0, 0, 0, .12); }
+.btn-play .btn-chip { background: rgba(0, 0, 0, .18); }
+
+/* ---------------------------------------------------------------- panneau latéral (versions, sources) */
+.modal-card.side-panel { position: fixed; top: 0; right: 0; bottom: 0; left: auto; width: min(640px, 92vw); max-width: none; max-height: none; height: 100%;
+  margin: 0; border-radius: 0; padding: 48px 38px 30px; box-sizing: border-box; display: flex; flex-direction: column;
+  background: #151014; border: 0; border-left: 1px solid rgba(255, 255, 255, .08); box-shadow: -30px 0 80px rgba(0, 0, 0, .6);
+  animation: spIn .22s cubic-bezier(.2, .8, .2, 1); overflow-y: auto; }
+@keyframes spIn { from { transform: translateX(40px); opacity: 0; } to { transform: none; opacity: 1; } }
+.modal-card.side-panel .modal-x { top: 18px; right: 18px; }
+.modal-card.side-panel #modal-body { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.sp-head h2 { font-family: var(--display); font-size: 30px; font-weight: 800; margin: 0 40px 8px 0; line-height: 1.15; }
+.sp-head p { margin: 0 0 24px; color: rgba(255, 255, 255, .7); font-size: 15.5px; line-height: 1.5; }
+.sp-rows { display: flex; flex-direction: column; gap: 10px; }
+.sp-row { display: flex; align-items: flex-start; gap: 14px; width: 100%; text-align: left; padding: 16px 18px; border-radius: 14px;
+  background: rgba(255, 255, 255, .06); color: #fff; border: 0; cursor: pointer; font: inherit; transition: background .12s, transform .12s; }
+.sp-row:hover { background: rgba(255, 255, 255, .12); }
+.sp-row:focus, .sp-row:focus-visible { background: #fff; color: #16070d; outline: none; box-shadow: none; }
+.sp-row.off:not(:focus) { opacity: .6; }
+.sp-row.toggle { margin-top: 14px; }
+.sp-check { width: 24px; height: 24px; flex: none; margin-top: 1px; color: #ff8fa8; }
+.sp-row:focus .sp-check { color: var(--accent); }
+.sp-check .ic { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
+.sp-main { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.sp-label { font-size: 18px; font-weight: 700; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.sp-det { font-size: 14.5px; line-height: 1.45; color: rgba(255, 255, 255, .65); word-break: break-word; }
+.sp-row:focus .sp-det { color: rgba(0, 0, 0, .62); }
+.sp-tag { padding: 2px 9px; border-radius: 7px; font-size: 12px; font-weight: 800; letter-spacing: .04em; background: var(--accent); color: #fff; }
+.sp-tag.grey { background: rgba(128, 128, 128, .4); color: inherit; }
+.sp-foot { margin-top: auto; padding-top: 22px; font-size: 14px; color: rgba(255, 255, 255, .5); }
+
+/* ---------------------------------------------------------------- télécommande : haut d'écran qui suit la sélection */
+.focus-hero { position: fixed; z-index: 30; left: 0; right: 0; top: 0; height: 50vh; pointer-events: none; display: none; overflow: hidden; background: #060408; }
+body.browsing .focus-hero { display: block; }
+body.browsing.playing .focus-hero, body.browsing[data-page="detail"] .focus-hero { display: none; }
+.fh-bg { position: absolute; inset: 0 0 0 30%; background-size: cover; background-position: center 25%; }
+.fh-shade { position: absolute; inset: 0; background:
+  linear-gradient(90deg, #060408 0%, rgba(6, 4, 8, .96) 30%, rgba(6, 4, 8, .55) 52%, rgba(6, 4, 8, .05) 78%),
+  linear-gradient(0deg, #060408 0%, rgba(6, 4, 8, 0) 40%); }
+.fh-in { position: absolute; left: calc(var(--rail) + var(--pad)); bottom: 30px; width: 52%; }
+.fh-kicker { font-size: 13px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: #ff8fa8; min-height: 1em; }
+.fh-title { margin: 8px 0 0; font-family: var(--display); font-weight: 800; font-size: 44px; line-height: 1.02; letter-spacing: -.02em;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.fh-meta { margin-top: 12px; display: flex; align-items: center; flex-wrap: wrap; gap: 8px; font-size: 15px; font-weight: 600; color: rgba(255, 255, 255, .86); }
+.fh-ov { margin: 12px 0 0; font-size: 15.5px; line-height: 1.5; color: rgba(255, 255, 255, .78);
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+body.browsing #nav.rail-nav { z-index: 41; }
+/* la rangée sélectionnée ressort, les autres s'effacent */
+body.browsing #view .row .row-head h2 { color: rgba(255, 255, 255, .5); transition: color .15s; }
+body.browsing #view .row:focus-within .row-head h2 { color: #fff; }
+body.browsing #view .row:not(:focus-within) .card { opacity: .5; }
+body.ui2.tv .rail { scroll-behavior: auto; padding-left: calc(var(--pad) + 6px); }
+/* assez de place pour la carte agrandie et son cadre, à gauche comme en haut */
+body.ui2.tv .rail { padding-top: 22px; padding-bottom: 26px; }

@@ -23,3 +23,12 @@ body.platform-android .hero-bg, body.platform-android .dhero-bg { animation: non
 body.platform-android .feat .hero-bg { transition: none !important; }
 body.platform-android * { transition-duration: .1s !important; }
 body.platform-android .modal-backdrop { animation: none !important; }
+
+/* boîtier modeste (vieux Fire TV Stick…) : aucune animation, image du haut d'écran sans fondu */
+body.box-modeste *:not(.spin):not(.ring):not(.loader i) { transition: none !important; animation: none !important; }
+body.box-modeste.tv .card:focus-visible, body.box-modeste.tv .card:focus { transform: none; }
+body.box-modeste .fh-bg { background-position: center 25%; }
+
+/* réglages : journal du lecteur */
+.diag-log { margin: 6px 0 12px; padding: 12px 14px; border-radius: 12px; background: rgba(255, 255, 255, .06); font-size: 13px; line-height: 1.5;
+  white-space: pre-wrap; word-break: break-word; max-height: 300px; overflow: auto; color: rgba(255, 255, 255, .8); }

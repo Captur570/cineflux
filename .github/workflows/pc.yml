@@ -1,0 +1,89 @@
+# ShippoTV pour PC (Windows) : aperçu de l'interface dans Chromium, puis fabrication de l'installateur.
+# Branche « android » : résultats dans la release « pc-essais ». Branche main : publication de la version
+# (release vX.Y.Z), que les PC où ShippoTV est installé proposent d'installer tout seuls.
+name: Appli PC
+on:
+  push:
+    branches: [main, android]
+    paths: ["web/**", "*.py", "outils/build.ps1", "outils/preparer.py", "outils/shippotv.iss", "assets/**", "version.txt", "notes_version.txt", ".github/workflows/pc.yml", "tv/engine/**"]
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: pc-${{ github.ref_name }}
+  cancel-in-progress: true
+jobs:
+  apercu:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Outils
+        run: |
+          pip install playwright
+          python -m playwright install --with-deps chromium
+      - name: Captures de l'interface (PC à la souris, puis à la télécommande)
+        run: |
+          python3 outils/build_android.py
+          python3 web/ci/pc_shots.py
+      - name: Résultats d'essai
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG=pc-essais
+          gh release view $TAG >/dev/null 2>&1 || gh release create $TAG --prerelease --target "${{ github.sha }}" --title "PC - essais" --notes "Résultats d'essais (pas une version à installer)."
+          (cd web/ci/out && zip -q ../../../apercu.zip *) || true
+          [ -f apercu.zip ] && gh release upload $TAG apercu.zip --clobber || true
+
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          architecture: x64
+      - name: Réglages intégrés (synchronisation, mises à jour)
+        shell: pwsh
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          TMDB_KEY: ${{ secrets.TMDB_KEY }}
+        run: |
+          @{ supabase_url = "$env:SUPABASE_URL"; supabase_key = "$env:SUPABASE_KEY"; update_repo = "${{ github.repository }}"; tmdb_key = "$env:TMDB_KEY" } |
+            ConvertTo-Json | Set-Content -Encoding UTF8 distribution.json
+      - name: Fabrication de l'installateur
+        shell: pwsh
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File outils/build.ps1
+      - name: Vérification rapide
+        shell: pwsh
+        run: |
+          $v = (Get-Content version.txt -Raw).Trim()
+          $f = "Output/ShippoTV-Setup-$v.exe"
+          if (-not (Test-Path $f)) { throw "installateur absent" }
+          Get-Item $f | Format-List Name, Length
+          if (-not (Test-Path "dist/ShippoTV/vlc/libvlc.dll")) { throw "VLC absent du paquet" }
+      - name: Essai (branche autre que main)
+        if: github.ref != 'refs/heads/main'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG=pc-essais
+          gh release view $TAG >/dev/null 2>&1 || gh release create $TAG --prerelease --target "${{ github.sha }}" --title "PC - essais" --notes "Résultats d'essais (pas une version à installer)."
+          gh release upload $TAG Output/ShippoTV-Setup-*.exe --clobber
+      - name: Publication de la version
+        if: github.ref == 'refs/heads/main'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          V=$(tr -d '\r\n ' < version.txt)
+          awk 'BEGIN{p=0} /^ShippoTV /{if(p)exit; p=1; next} p' notes_version.txt > notes.txt
+          if gh release view "v$V" >/dev/null 2>&1; then
+            gh release upload "v$V" "Output/ShippoTV-Setup-$V.exe" --clobber
+          else
+            gh release create "v$V" "Output/ShippoTV-Setup-$V.exe" --title "ShippoTV $V" --notes-file notes.txt --latest
+          fi

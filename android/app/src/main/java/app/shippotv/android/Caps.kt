@@ -1,5 +1,6 @@
 package app.shippotv.android
 
+import android.app.ActivityManager
 import android.content.Context
 import android.media.AudioDeviceInfo
 import android.media.AudioFormat
@@ -15,11 +16,20 @@ object Caps {
     var mpeg2 = false; var dv = false; var vc1 = false
     var ac3 = false; var eac3 = false; var dts = false; var truehd = false
     var passAc3 = false; var passEac3 = false; var passDts = false; var passTruehd = false
+    var ramMb = 0L; var lowRam = false; var cores = 0
     private var done = false
+    private var prefs: android.content.SharedPreferences? = null
 
     fun init(ctx: Context) {
         if (done) return
         done = true
+        prefs = ctx.getSharedPreferences("lecteur", Context.MODE_PRIVATE)
+        try {
+            val am = ctx.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+            val mi = ActivityManager.MemoryInfo(); am.getMemoryInfo(mi)
+            ramMb = mi.totalMem / 1048576; lowRam = am.isLowRamDevice
+            cores = Runtime.getRuntime().availableProcessors()
+        } catch (_: Exception) { }
         try {
             for (ci in MediaCodecList(MediaCodecList.REGULAR_CODECS).codecInfos) {
                 if (ci.isEncoder) continue
@@ -61,6 +71,25 @@ object Caps {
             }
         } catch (_: Exception) { }
     }
+
+    /** Profil du boîtier : « modeste » (vieux Fire TV Stick…), « standard » (Player Pop…), « puissant » (Shield, Cube…).
+     *  Il fixe le lecteur par défaut et le niveau d'effets de l'interface. Modifiable dans les réglages. */
+    fun autoProfile(): String = when {
+        lowRam || (ramMb in 1L..1700L) || !hevc -> "modeste"
+        ramMb >= 3000 && hevc10 && cores >= 6 -> "puissant"
+        else -> "standard"
+    }
+    fun profileWhy(): String {
+        val bits = mutableListOf<String>()
+        if (ramMb > 0) bits += "%.1f Go de mémoire".format(ramMb / 1024.0).replace('.', ',')
+        bits += if (!hevc) "pas de décodeur HEVC" else if (hevc10) "HEVC 10 bits" else "HEVC 8 bits seulement"
+        if (cores > 0) bits += "$cores cœurs"
+        return bits.joinToString(", ")
+    }
+    fun profileSetting(): String = prefs?.getString("profil", "auto") ?: "auto"
+    fun profile(): String = profileSetting().let { if (it == "auto") autoProfile() else it }
+    /** Le lecteur Android a échoué plusieurs fois de suite sur cette box : VLC passe devant. */
+    fun media3Unreliable(): Boolean = (prefs?.getInt("echecs_media3", 0) ?: 0) >= 3
 
     fun audioOk(codec: String): Boolean = when (codec) {
         "ac3" -> ac3 || passAc3

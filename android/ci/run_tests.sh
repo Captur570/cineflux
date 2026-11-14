@@ -63,7 +63,9 @@ STEPS='[
  ["17_reglages", "go(\"settings\")"],
  ["18_reglages_synchro", "const s = document.querySelector(\"#sync-set\"); s && s.scrollIntoView({ block: \"center\" })"],
  ["19_reglages_bas", "scrollTo(0, 99999)"],
- ["20_profils", "go(\"profiles\")"]
+ ["20_profils", "go(\"profiles\")"],
+ ["22_source_chaine", "go(\"live\"); setTimeout(() => playLive(S.cat.live.find(c => c.s.length > 2) || S.cat.live[0], 0), 1500)"],
+ ["23_reglages_boitier", "closeModal(); go(\"settings\"); setTimeout(() => { const h = [...document.querySelectorAll(\".set h2\")].find(x => /Bo/.test(x.textContent)); h && h.scrollIntoView({ block: \"start\" }); }, 2500)"]
 ]'
 SEQ="const L = $STEPS; L.forEach((s, i) => setTimeout(() => { console.warn('[essai] etape ' + i); try { (0, eval)(s[1]); } catch (e) { console.error('[essai] ' + e); } }, i * 5000));"
 adb logcat -c
@@ -96,7 +98,7 @@ adb shell input keyevent KEYCODE_DPAD_RIGHT; sleep 0.3; adb shell input keyevent
 sleep 2; adb shell input keyevent KEYCODE_BACK; sleep 0.5; adb shell input keyevent KEYCODE_BACK; sleep 1
 run probe 4 ',"probe":"probe/aac_en_srtfr.mkv","label":"1080p · VOSTFR"'; rm -f $OUT/probe.png
 adb shell input keyevent KEYCODE_DPAD_DOWN; sleep 0.6; adb shell input keyevent KEYCODE_DPAD_RIGHT; sleep 0.5; adb shell input keyevent KEYCODE_DPAD_CENTER; sleep 1.2; shot lecteur_08_sous_titres_vostfr
-js 21_direct_commandes 24 "playLive(S.cat.live[1], 0)" KEYCODE_DPAD_CENTER
+js 21_direct_commandes 24 "playLive(S.cat.live[1], 0, true)" KEYCODE_DPAD_CENTER
 adb logcat -d -s ShippoTV:V chromium:W > $OUT/journal.txt
 adb logcat -d > $OUT/journal-complet.txt
 tail -c 300000 $OUT/journal-complet.txt > $OUT/journal-fin.txt; rm $OUT/journal-complet.txt

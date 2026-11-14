@@ -33,7 +33,7 @@
         else if (T.route === 'series') go('series');
         else if (T.route === 'settings') go('settings');
         else if (T.route === 'player') playMovie(dune);
-        else if (T.route === 'live_play') playLive(S.cat.live.find(c => c.k === 'france2') || S.cat.live[0], 0);
+        else if (T.route === 'live_play') playLive(S.cat.live.find(c => c.k === 'france2') || S.cat.live[0], 0, true);
         else if (T.route === 'js') { try { (0, eval)(atob(T.js64)); } catch (e) { console.error('[essai] ' + e); } }
         else if (T.route === 'probe') native({ cmd: 'play', title: 'Essai du choix du lecteur', sub: T.probe || '', kind: 'movie', live: false,
           streams: [{ url: 'http://' + T.server + '/' + (T.probe || 'scope.mkv'), label: T.label || '' }], start: 0 });
@@ -41,6 +41,51 @@
     };
     if (T.route && T.route !== 'home' && T.route !== 'setup') setTimeout(go2, 1000);
   }
+
+  /* ------------------------------------------------------------ profil du boîtier (modeste / standard / puissant) */
+  const PROFILE_NAMES = { modeste: 'modeste', standard: 'standard', puissant: 'puissant' };
+  window.ANDROID_PROFILE = () => native({ cmd: 'diag' }).then(d => {
+    window.ANDROID_DIAG = d;
+    ['modeste', 'standard', 'puissant'].forEach(p => document.body.classList.toggle('box-' + p, d.profile === p));
+    return d;
+  }).catch(() => null);
+  window.ANDROID_PROFILE();
+
+  /* Réglages › Boîtier et lecteur : profil, lecteur par défaut, derniers choix du lecteur */
+  const settings0 = PAGES.settings;
+  PAGES.settings = function (v, token, params) {
+    settings0(v, token, params);
+    const about = v.querySelector('#about-set');
+    if (!about) return;
+    const sec = el('section', 'set', `<h2>${ico('tv')}Boîtier et lecteur</h2><div class="box-body"><span class="spin"></span></div>`);
+    about.before(sec);
+    const body = sec.querySelector('.box-body');
+    const draw = d => {
+      if (!d) { body.innerHTML = '<p class="dim">Informations indisponibles.</p>'; return; }
+      const opt = (v, l, cur) => `<option value="${v}" ${cur === v ? 'selected' : ''}>${esc(l)}</option>`;
+      body.innerHTML = `
+        <p class="dim">${esc(d.model || '')} · ShippoTV ${esc(d.version || '')}<br>${esc(d.box || '')}</p>
+        <div class="field"><label>Profil du boîtier</label><select data-k="profile">
+          ${opt('auto', 'Automatique (détecté : ' + (PROFILE_NAMES[d.auto] || d.auto) + ' — ' + (d.why || '') + ')', d.profileSetting)}
+          ${opt('modeste', 'Modeste : VLC par défaut, interface très allégée', d.profileSetting)}
+          ${opt('standard', 'Standard : lecteur choisi film par film', d.profileSetting)}
+          ${opt('puissant', 'Puissant : lecteur choisi film par film, y compris pour le direct', d.profileSetting)}
+        </select></div>
+        <div class="field"><label>Lecteur par défaut</label><select data-k="player">
+          ${opt('auto', 'Automatique (recommandé)', d.player)}${opt('media3', 'Toujours le lecteur Android', d.player)}${opt('vlc', 'Toujours VLC', d.player)}
+        </select></div>
+        ${d.media3Unreliable ? `<div class="row-line"><span class="dim">Le lecteur Android a échoué plusieurs fois de suite : VLC est utilisé d'office.</span><button class="btn btn-ghost btn-sm" type="button" data-a="reset">Lui redonner sa chance</button></div>` : ''}
+        <div class="field"><label>Derniers choix du lecteur</label>
+          <pre class="diag-log">${esc((d.lines || []).slice(-14).join('\n') || 'Rien pour l’instant : lancez un film ou une chaîne.')}</pre></div>
+        <button class="btn btn-ghost btn-sm" type="button" data-a="refresh">${ico('refresh')}Actualiser</button>`;
+      body.querySelectorAll('select[data-k]').forEach(sel => sel.onchange = () =>
+        native({ cmd: 'setPrefs', [sel.dataset.k]: sel.value }).then(() => { toast('Réglage enregistré', 'ok', 1500); window.ANDROID_PROFILE().then(draw); }));
+      const r = body.querySelector('[data-a="reset"]');
+      if (r) r.onclick = () => native({ cmd: 'setPrefs', resetFails: true }).then(() => window.ANDROID_PROFILE().then(draw));
+      body.querySelector('[data-a="refresh"]').onclick = () => window.ANDROID_PROFILE().then(draw);
+    };
+    window.ANDROID_PROFILE().then(draw);
+  };
 
   /* ------------------------------------------------------------ sortie, bande-annonce */
   window.close = () => native({ cmd: 'exit' }).catch(() => {});
@@ -100,7 +145,8 @@
     const list = arr.length > 1 ? arr : S.cat.live;
     const i = list.findIndex(c => c.k === o.key);
     if (i < 0) return;
-    playLive(list[(i + d + list.length) % list.length], 0);
+    window.__zapping = true;
+    try { playLive(list[(i + d + list.length) % list.length], 0); } finally { window.__zapping = false; }
   }
 
   /* évènements envoyés par le lecteur natif (mêmes noms que sur l'iPad) */

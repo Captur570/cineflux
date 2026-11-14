@@ -171,7 +171,7 @@ class PlayerHost(private val act: MainActivity) : EngineCb {
 
     private fun memoryKey(it: Item, s: Stream) = "moteur:" + (if (it.key.isNotEmpty()) "${it.kind}:${it.key}" else s.url.hashCode().toString())
 
-    private fun startStream(i: Int, startMs: Long, forced: String?) {
+    private fun startStream(i: Int, startMs: Long, forced: String?, why: String? = null) {
         val it = item ?: return
         val s = it.streams[i]
         idx = i
@@ -189,14 +189,17 @@ class PlayerHost(private val act: MainActivity) : EngineCb {
             val pref = prefs.getString("defaut", "auto") ?: "auto"
             val remembered = prefs.getString(memoryKey(it, s), null)
             val d: Decision = when {
-                forced != null -> Decision(forced, "choisi")
+                forced != null -> Decision(forced, why ?: "choisi")
                 pref != "auto" -> Decision(pref, "réglage du lecteur par défaut")
                 remembered != null -> Decision(remembered, "retenu pour ce titre")
+                Caps.profile() == "modeste" -> Decision("vlc", "boîtier modeste : VLC par défaut")
+                Caps.media3Unreliable() -> Decision("vlc", "le lecteur Android échoue souvent sur cette box")
+                it.live && Caps.profile() != "puissant" -> Decision("vlc", "direct : VLC, plus tolérant avec les flux TV")
                 !it.live && (s.ext.equals("mkv", true) || s.url.substringBefore('?').endsWith(".mkv", true)) ->
                     Choice.decide(Probe.mkv(s.url), s.label, s.ext, false)
                 else -> Choice.decide(null, s.label, s.ext, it.live)
             }
-            Log.i("ShippoTV", "[lecteur] ${it.title} (${s.label}) → ${d.engine} : ${d.reason}")
+            Diag.log("[lecteur] ${it.title} (${s.label}) → ${d.engine} : ${d.reason}")
             h.post {
                 if (myGen != gen || item !== it) return@post
                 launch(d, s, startMs)
@@ -223,7 +226,8 @@ class PlayerHost(private val act: MainActivity) : EngineCb {
         firstFrame = true
         retries = 0
         spinner.visibility = View.GONE
-        Log.i("ShippoTV", "[lecteur] première image (${engine?.name})")
+        Diag.log("[lecteur] première image (${engine?.name})")
+        if (engineKind == "media3") prefs.edit().putInt("echecs_media3", 0).apply()
         act.emitPlayer(JSONObject().put("type", "started").put("engine", engine?.name))
     }
 
@@ -239,14 +243,20 @@ class PlayerHost(private val act: MainActivity) : EngineCb {
     override fun onError(msg: String) {
         val it = item ?: return
         val s = it.streams[idx]
-        Log.w("ShippoTV", "[lecteur] erreur ${engine?.name} : $msg")
+        Diag.log("[lecteur] erreur ${engine?.name} : $msg", true)
         if (!firstFrame) {
             if (other() !in tried) {
                 // l'autre lecteur prend le relais, et on s'en souvient pour ce titre
                 prefs.edit().putString(memoryKey(it, s), other()).apply()
-                showBanner("Le ${if (engineKind == "vlc") "lecteur VLC" else "lecteur Android"} n'y arrive pas : ${otherName()} prend le relais")
+                val failed = if (engineKind == "vlc") "le lecteur VLC" else "le lecteur Android"
+                if (engineKind == "media3") {
+                    val n = prefs.getInt("echecs_media3", 0) + 1
+                    prefs.edit().putInt("echecs_media3", n).apply()
+                    if (n == 3) Diag.log("[lecteur] 3 échecs de suite du lecteur Android : VLC devient le lecteur par défaut sur cette box")
+                }
+                showBanner("${failed.replaceFirstChar { c -> c.uppercase() }} n'a pas pu lire ce flux : ${otherName()} prend le relais")
                 val keep = engine?.pos?.takeIf { p -> p > 0 } ?: startAt
-                startStream(idx, keep, other())
+                startStream(idx, keep, other(), "$failed n'a pas pu lire ce flux")
                 return
             }
             if (idx + 1 < it.streams.size) {
@@ -301,7 +311,7 @@ class PlayerHost(private val act: MainActivity) : EngineCb {
                 // le son avance mais aucune image après 7 s (vidéo que le lecteur Android ne décode pas) : VLC
                 if (!firstFrame && engineKind == "media3" && e.playing && playingSince > 0 &&
                     System.currentTimeMillis() - playingSince > 7000 && e.hasVideo) {
-                    Log.w("ShippoTV", "[lecteur] du son mais pas d'image")
+                    Diag.log("[lecteur] du son mais pas d'image", true)
                     onError("pas d'image")
                 }
                 val now = System.currentTimeMillis()
@@ -495,7 +505,7 @@ class PlayerHost(private val act: MainActivity) : EngineCb {
         rows += ("Lire avec " + (if (engineKind == "vlc") "le lecteur Android" else "VLC")) to {
             prefs.edit().putString(memoryKey(it, it.streams[idx]), other()).apply()
             panel.visibility = View.GONE; hideControls()
-            tried.clear(); startStream(idx, if (it.live) 0L else e.pos, other())
+            tried.clear(); startStream(idx, if (it.live) 0L else e.pos, other(), "choisi dans le menu du lecteur")
         }
         rows += "Ouvrir avec une autre application…" to { openWith() }
         for ((v, l) in listOf("auto" to "automatique (recommandé)", "media3" to "toujours le lecteur Android", "vlc" to "toujours VLC"))

@@ -38,7 +38,7 @@ class MainActivity : Activity() {
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         Kv.init(this)
         Caps.init(this)
-        Log.i("ShippoTV", "[box] ${Caps.summary()}")
+        Diag.log("[box] ${Caps.summary()} · profil ${Caps.profile()} (${Caps.profileWhy()})")
         // mode essai : seulement si l'émulateur de test a déposé ce fichier (une autre appli ne peut pas l'y créer)
         testConfig = intent?.getStringExtra("test")?.takeIf { java.io.File("/data/local/tmp/shippotv-essais").exists() }
 
@@ -88,6 +88,7 @@ class MainActivity : Activity() {
     }
 
     fun js(code: String) = runOnUiThread { webView.evaluateJavascript(code, null) }
+    fun applyProfileClass() = js("window.ANDROID_PROFILE && ANDROID_PROFILE()")
     fun emitPlayer(ev: JSONObject) = js("window.IOS_PLAYER && IOS_PLAYER(${ev})")
 
     /* ------------------------------------------------------------------ télécommande */
@@ -152,6 +153,25 @@ class MainActivity : Activity() {
                     catch (e: Exception) { reply(id, "aucune application pour ouvrir ce lien", null) }
                 }
                 "caps" -> reply(id, null, JSONObject.quote(Caps.summary()))
+                "diag" -> {
+                    val pr = getSharedPreferences("lecteur", MODE_PRIVATE)
+                    reply(id, null, JSONObject()
+                        .put("box", Caps.summary()).put("profile", Caps.profile()).put("profileSetting", Caps.profileSetting())
+                        .put("auto", Caps.autoProfile()).put("why", Caps.profileWhy())
+                        .put("player", pr.getString("defaut", "auto")).put("media3Unreliable", Caps.media3Unreliable())
+                        .put("model", android.os.Build.MANUFACTURER + " " + android.os.Build.MODEL + " · Android " + android.os.Build.VERSION.RELEASE)
+                        .put("version", BuildConfig.VERSION_NAME)
+                        .put("lines", org.json.JSONArray(Diag.recent())).toString())
+                }
+                "setPrefs" -> {
+                    val pr = getSharedPreferences("lecteur", MODE_PRIVATE).edit()
+                    if (m.has("profile")) pr.putString("profil", m.optString("profile", "auto"))
+                    if (m.has("player")) pr.putString("defaut", m.optString("player", "auto"))
+                    if (m.optBoolean("resetFails")) pr.putInt("echecs_media3", 0)
+                    pr.apply()
+                    runOnUiThread { applyProfileClass() }
+                    reply(id, null, "true")
+                }
                 "exit" -> runOnUiThread { finishAndRemoveTask(); reply(id, null, "true") }
                 "haptic" -> reply(id, null, "true")
                 else -> reply(id, "commande inconnue", null)

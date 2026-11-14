@@ -34,7 +34,8 @@ PAGES.detail = async function (v, token, params) {
           <p class="ov">${esc(i.overview) || '<span class="dim">Résumé en cours de chargement…</span>'}</p>
           ${resume ? `<div class="resume-bar"><div class="progress"><i style="width:${Math.round(100 * pr.pos / pr.dur)}%"></i></div><span>Reste ${fmtMin((pr.dur - pr.pos) / 60)}</span></div>` : ''}
           <div class="actions">
-            ${st.ok ? `<button class="btn btn-play" data-a="play">${ico('play')}${resume ? 'Reprendre' : 'Lecture'}</button>` : ''}
+            ${st.ok ? `<button class="btn btn-play" data-a="play">${ico('play')}${resume ? 'Reprendre' : 'Lecture'}${kind === 'movie' ? playChip(item) : ''}</button>` : ''}
+            ${kind === 'movie' && st.ok && goodVersions(item).length > 1 ? `<button class="btn btn-ghost" data-a="versions" data-k="${esc(item.k)}">${ico('layers')}Versions<span class="btn-chip">${goodVersions(item).length}</span></button>` : ''}
             ${i.tmdb ? `<button class="btn btn-ghost" data-a="trailer">${ico('film')}Bande-annonce</button>` : ''}
             <button class="rb big" data-a="fav" title="${fav ? 'Retirer de ma liste' : 'Ajouter à ma liste'}">${ico(fav ? 'check' : 'plus')}</button>
             ${kind === 'movie' && st.ok ? `<button class="rb big" data-a="dl" title="Télécharger">${ico(isDownloaded(kind, item) ? 'downloaded' : 'down')}</button>` : ''}
@@ -123,6 +124,16 @@ function versionTitle(v) {
   return [q ? QLONG[q] : 'Qualité non précisée', tags.includes('DV') ? 'Dolby Vision' : tags.includes('HDR') ? 'HDR' : '',
     tags.filter(t => !QRANK[t] && t !== 'DV' && t !== 'HDR').join(', ')].filter(Boolean).join(' · ');
 }
+/* étiquette de la version lue d'office, dans le bouton Lecture */
+function playChip(item) {
+  const good = goodVersions(item).length ? goodVersions(item) : item.v;
+  const v = typeof bestFirst === 'function' ? bestFirst(good)[0] : good[0];
+  const tags = ((v && v.q) || '').split(' · ').filter(Boolean);
+  const q = tags.find(t => QRANK[t]);
+  const t = [q ? QLABEL[q] : '', tags.includes('DV') ? 'Dolby Vision' : tags.includes('HDR') ? 'HDR' : '', tags.find(t => /^(VF|VFF|VFQ|VOSTFR|VO|MULTI)$/i.test(t)) || ''].filter(Boolean).join(' · ');
+  return t ? `<span class="btn-chip">${esc(t)}</span>` : '';
+}
+
 function versionBadges(q) {
   return (q || '').split(' · ').filter(Boolean).map(t => `<span class="badge ${t === '4K' ? 'hot' : QRANK[t] ? '' : 'dark'}">${QLABEL[t] || t}</span>`).join('');
 }
